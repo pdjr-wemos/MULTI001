@@ -6,19 +6,15 @@ The module is based on a Wemos Mini-D1 SOC.
 
 __MULTI001__ was designed to obtain motion and light-level data from a
 LuxControl SmartDim Sensor 2 (part number 86 454 523).
-These 12VDC devices were top-quality sensors and were discontinued
-when the manufacturer revised their product range.
-At this time they could be obtained for a while at a franction of their
-original, eye-watering, price.
-The sensor supports the following connections:
+The SmartDim sensor supports the following connections:
 
-BROWN  - +12VDC power in.
-YELLOW - GND
-ORANGE - PIR (normally 0VDC, 12VDC pulse when movement detected)
-YELLOW - LUX (0 - 12VDC representing LUX level)
+BROWN  - +12VDC power-in\
+YELLOW - GND\
+ORANGE - PIR (normally 0VDC, 12VDC pulse when movement detected)\
+YELLOW - LUX (0 - 12VDC representing LUX level)\
  
 Interfacing these sensors to the Wemos board simply requires adjustment
-of the output voltages on PIR and LUX through a resistance dividor.
+of the output voltages on PIR and LUX through a resistance divider.
 
 The sensor module obtains temperature data from a DS18B20 digital
 thermometer.
