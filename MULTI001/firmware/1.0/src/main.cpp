@@ -1,4 +1,5 @@
- /* 
+ /*********************************************************************
+  * 
  * 
  * The code was designed to support the SmartDim Sensor 2 PIR/LUX
  * device (part number 86 454 523) sold by LuxControl as part of its
@@ -36,7 +37,7 @@
  * being written to the serial port immediately after system boot.
  */
 #define DEBUG_SERIAL 1
-#define DEBUG_SERIAL_START_DELAY 4000
+#define DEBUG_SERIAL_START_DELAY 8000
 #define DEBUG_SERIAL_INTERVAL 1000UL
 
 #define GPIO_ONE_WIRE_BUS 4 // D1-MINI pin D2
@@ -44,20 +45,26 @@
 #define GPIO_LUX_SENSOR A0 // D1-MINI pin A0
 
 #define WIFI_SERVER_PORT 80
-#define WIFI_ACCESS_POINT_NAME_PREFIX "MULTISENSOR-"
-
-#define MQTT_DEFAULT_SERVER_NAME "192.168.1.206"
-#define MQTT_DEFAULT_SERVER_PORT 1883
-#define MQTT_DEFAULT_USERNAME "preeve9534"
-#define MQTT_DEFAULT_PASSWORD "samsam"
+#define WIFI_ACCESS_POINT_NAME "MULTISENSOR-%s"
+#define WIFI_ACCESS_POINT_PORTAL_TIMEOUT 180 // In seconds
 
 #define MQTT_PUBLISH_INTERVAL 30000
-#define MQTT_SENSOR_TOPIC_PREFIX "homeassistant/multisensor"
+#define MQTT_STATUS_TOPIC "multisensor/%s/status"
 
 #define STORAGE_TEST_ADDRESS 0
 #define STORAGE_TEST_VALUE 0xAE
 #define MQTT_CONFIG_STORAGE_ADDRESS 1
-struct MQTT_CONFIG { char serverName[40]; int serverPort; char userName[20]; char password[20]; };
+
+/**********************************************************************
+ * Structure to store MQTT configuration properties.
+ */
+struct MQTT_CONFIG { 
+  char servername[40];  // MQTT server Hostname or IP address
+  int  serverport;      // MQTT service port (normally 1883)
+  char username[20];    // Name of user who can publish to the server
+  char password[20];    // Password of named user
+  char deviceid[20];    // Identifier for this device (defaults to MAC)
+};
 
 #define TEMPERATURE_SENSOR_DETECT_TRIES 5
 #define TEMPERATURE_SENSOR_I2C_ADDRESS 18
@@ -83,10 +90,10 @@ void setup_wifi(const char* ssid, const char* password) {
 void connect_to_mqtt(MQTT_CONFIG &config) {
   while (!mqttClient.connected()) {
     #ifdef DEBUG_SERIAL
-      Serial.print("Trying to connect to MQTT server '"); Serial.print(config.serverName); Serial.print("'...");
+      Serial.print("Trying to connect to MQTT server '"); Serial.print(config.servername); Serial.print("'...");
     #endif
 
-    if (mqttClient.connect(config.serverName, config.userName, config.password)) {
+    if (mqttClient.connect(config.servername, config.username, config.password)) {
       #ifdef DEBUG_SERIAL
         Serial.println("connected");
       #endif
@@ -111,23 +118,11 @@ void loadConfig(MQTT_CONFIG &config) {
     Serial.println("Loading configuration from EEPROM");
     #endif
     EEPROM.get(MQTT_CONFIG_STORAGE_ADDRESS, config);
-  } else {
-    #ifdef DEBUG_SERIAL
-    Serial.println("Loading configuration from defaults");
-    #endif
-    strcpy(config.serverName, MQTT_DEFAULT_SERVER_NAME);
-    config.serverPort = MQTT_DEFAULT_SERVER_PORT;
-    strcpy(config.userName, MQTT_DEFAULT_USERNAME);
-    strcpy(config.password, MQTT_DEFAULT_PASSWORD);
   }
   EEPROM.end();
 }
 
-void saveConfig(MQTT_CONFIG &config, const char *server, const char *port, const char *username, const char *password) {
-  strcpy(config.serverName, server);
-  config.serverPort = atoi(port);
-  strcpy(config.userName, username);
-  strcpy(config.password, password);
+void saveConfig(MQTT_CONFIG &config) {
   EEPROM.begin(512);
   EEPROM.write(0, STORAGE_TEST_VALUE);
   EEPROM.put(MQTT_CONFIG_STORAGE_ADDRESS, config);
@@ -135,13 +130,22 @@ void saveConfig(MQTT_CONFIG &config, const char *server, const char *port, const
   EEPROM.end();
 }
 
+void dumpConfig(MQTT_CONFIG &config) {
+  #ifdef DEBUG_SERIAL
+  Serial.println("MQTT configuration:");
+  Serial.print("  servername: "); Serial.println(config.servername);
+  Serial.print("  serverport: "); Serial.println(config.serverport);
+  Serial.print("  username: "); Serial.println(config.username);
+  Serial.print("  password: "); Serial.println(config.password);
+  Serial.print("  deviceid: "); Serial.println(config.deviceid);
+  #endif
+}
+
 bool shouldSaveConfig = false;
 
 void saveConfigCallback() {
   shouldSaveConfig = true; 
 }
-
-
 
 char wifiAccessPointName[60];
 char mqttStatusTopic[60];
@@ -157,52 +161,74 @@ IRAM_ATTR void motionDetectionHandler() { DETECTED_MOTION = 1; }
 
 void setup() {
   #ifdef DEBUG_SERIAL
+  //delay(DEBUG_SERIAL_START_DELAY);
   Serial.begin(57600);
-  delay(DEBUG_SERIAL_START_DELAY);
   #endif
 
-  loadConfig(mqttConfig);
-  WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqttConfig.serverName, 40);
-  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", "" + mqttConfig.serverPort, 6);
-  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqttConfig.userName, 20);
-  WiFiManagerParameter custom_mqtt_pass("pass", "mqtt pass", mqttConfig.password, 20);
-
-  // Recover the wifi interface MAC address and use it to make unique
-  // names for the our configuration access point and our MQTT client. 
+  // Recover device MAC address and make a nice string representation.
+  //
   WiFi.macAddress(macAddress);
-  sprintf(wifiAccessPointName, "%s-%02X%02X%02X%02X%02X%02X", WIFI_ACCESS_POINT_NAME_PREFIX, macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
-  sprintf(mqttStatusTopic, "%s/%02x%02x%02x%02x%02x%02x/status", MQTT_SENSOR_TOPIC_PREFIX, macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
-    
+  char macAddressString[13];
+  sprintf(macAddressString, "%02x%02x%02x%02x%02x%02x", macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
+
+  // Initialise the MQTT default configuration then try to load any saved data.
+  strcpy(mqttConfig.servername, "");
+  mqttConfig.serverport = 1883;
+  strcpy(mqttConfig.username, "");
+  strcpy(mqttConfig.password, "");
+  strcpy(mqttConfig.deviceid, macAddressString);
+  loadConfig(mqttConfig);
+  
+  // Create some parameters for our bespoke MQTT properties.
+  WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqttConfig.servername, 40);
+  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", "" + mqttConfig.serverport, 6);
+  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqttConfig.username, 20);
+  WiFiManagerParameter custom_mqtt_pass("pass", "mqtt pass", mqttConfig.password, 20);
+  WiFiManagerParameter custom_mqtt_deviceid("device", "mqtt device", mqttConfig.deviceid, 20);
+  // Create a WiFiManager instance and configure it.
   WiFiManager wifiManager;
-  
-  // Uncomment next line to clean FS for testing 
-  //WiFi.disconnect(true);
-  //wifiManager.resetSettings();
-  //WiFi.disconnect(true);
-
-  
+  wifiManager.setConfigPortalTimeout(WIFI_ACCESS_POINT_PORTAL_TIMEOUT);
   wifiManager.setSaveConfigCallback(saveConfigCallback);
-
   wifiManager.addParameter(&custom_mqtt_server);
   wifiManager.addParameter(&custom_mqtt_port);
   wifiManager.addParameter(&custom_mqtt_user);
   wifiManager.addParameter(&custom_mqtt_pass);
-
+  wifiManager.addParameter(&custom_mqtt_deviceid);
+  // Finally, Make a name for the our configuration access point and
+  // start the WiFi manager. 
+  sprintf(wifiAccessPointName, WIFI_ACCESS_POINT_NAME, macAddressString);
   bool res = wifiManager.autoConnect(wifiAccessPointName);
+
+
+  // If we get to this point then the WiFi manager has either entered
+  // configuration mode and being timed out or we are connected to the
+  // configured network.  
   if (!res) {
     #ifdef DEBUG_SERIAL
-      Serial.println("Failed to connect. Restarting system.");
+      Serial.println("WiFi configuration or connection failure: restarting system.");
     #endif
     ESP.restart();
   } else {
     #ifdef DEBUG_SERIAL
-      Serial.print("Connected to wireless network.");
+      Serial.print("Connected to wireless network '");
+      Serial.print(WiFi.SSID());
+      Serial.println("'");
     #endif
     // We have a WiFi connection
-    // If the configuration data has changed, then we should save it...
-    if (shouldSaveConfig) saveConfig(mqttConfig, custom_mqtt_server.getValue(), custom_mqtt_port.getValue(), custom_mqtt_user.getValue(), custom_mqtt_pass.getValue());
-    // Configure the MQTT client with the remote MQTT server name and port... 
-    mqttClient.setServer(mqttConfig.serverName, mqttConfig.serverPort);
+    // If the configuration data has changed, then get it and save it...
+    if (shouldSaveConfig) {
+      strcpy(mqttConfig.servername, custom_mqtt_server.getValue());
+      mqttConfig.serverport = atoi(custom_mqtt_port.getValue());
+      strcpy(mqttConfig.username, custom_mqtt_user.getValue());
+      strcpy(mqttConfig.password, custom_mqtt_pass.getValue());
+      strcpy(mqttConfig.deviceid, custom_mqtt_deviceid.getValue());
+      saveConfig(mqttConfig);
+    }
+    // Finally, prepare our MQTT connection
+    dumpConfig(mqttConfig);
+    mqttClient.setServer(mqttConfig.servername, mqttConfig.serverport);
+    sprintf(mqttStatusTopic, MQTT_STATUS_TOPIC, mqttConfig.deviceid);
+    // And start sensing things
     temperatureSensors.begin();
     attachInterrupt(digitalPinToInterrupt(GPIO_PIR_SENSOR), motionDetectionHandler, RISING);
   }
