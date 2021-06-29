@@ -1,23 +1,20 @@
 # MULTI001
  
-__MULTI001__ implements a wireless sensor module which reports
-temperature, light-level and motion detection to an MQTT server.
-The module is based on a Wemos Mini-D1 SOC.
+__MULTI001__ is a MQTT wireless sensor module which reports temperature,
+lux and motion.
 
-__MULTI001__ was designed to obtain motion and light-level data from a
-LuxControl SmartDim Sensor 2 (part number 86 454 523).
-The SmartDim sensor supports the following connections:
+__MULTI001__ is was specifically designed to obtain motion and lux data
+from a SmartDim Sensor 2 (part number 86 454 523) ceiling fitting which
+was once part of a LuxControl home automation system.
+The SmartDim sensor operates at 12VDC and reports motion and lux using
+this reference voltage:
 
 BROWN  - +12VDC power-in\
 YELLOW - GND\
 ORANGE - PIR (normally 0VDC, 12VDC pulse when movement detected)\
 YELLOW - LUX (0 - 12VDC representing LUX level)\
  
-Interfacing these sensors to the Wemos board simply requires adjustment
-of the output voltages on PIR and LUX through a resistance divider.
-
-The sensor module obtains temperature data from a DS18B20 digital
-thermometer.
+__MULTI001__ obtains temperature data from a DS18B20 digital thermometer.
 
 ## Installation
 
@@ -28,26 +25,30 @@ The module has an intermittent maximum power consumption of 500mW.
 
 ## Configuration
 
-When powered for the first time __MULT001__ launches a wireless access
+When powered for the first time __MULTI001__ launches a wireless access
 point with an SSID of the form "MULTISENSOR-*mac-address*".
-The access point incorporates a captive portal that allows the user of
-a WiFi client to enter the following configuration parameters that will
-subsequently be used by the sensor in normal operation:
+The access point implements a captive portal web-interface that allows
+the user of a WiFi client to enter the following configuration parameters
+that will subsequently be used by the sensor in normal operation:
 
 * host network SSID (this can be selected from a scan list)
 * host network password
 * MQTT server hostname or IP address
 * MQTT username, and
-* MQTT password that will be used to authenticate publish requests.
-
+* MQTT password that will be used to authenticate publish requests
+* MQTT sensor name (defaults to the device MAC address)
 
 ## Operation
 
 After configuration, a power cycle on __MULT001__ will cause it to
 reboot as a WiFi client on the host network specified during
 configuration.
-The module will immediately begin reporting sensor readings to the MQTT
-server using the topic "multisensor/*mac-address*/status".
+If the module cannot connect to the specified WiFi hotspot within two
+minutes, then it will revert to configuration mode.
+
+Once a connection to the host WiFi network is made the module will
+immediately begin reporting sensor readings to the MQTT server using the
+topic "multisensor/*sensor-name*/status".
 
 The MQTT message payload is a JSON string of the form:
 
