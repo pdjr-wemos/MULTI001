@@ -3,10 +3,8 @@
 __MULTI001__ is a MQTT wireless sensor module which reports temperature,
 lux and motion.
 
-__MULTI001__ obtain motion and lux data from a LuxControl SmartDim Sensor 2
-(part number 86 454 523) ceiling fitting.
-The SmartDim sensors operate at 12VDC and report motion and lux using
-this reference voltage:
+__MULTI001__ obtains motion and lux data from a LuxControl SmartDim Sensor 2
+(part number 86 454 523) ceiling fitting which has the following connections:
 
 BROWN  - +12VDC power-in\
 YELLOW - GND\
