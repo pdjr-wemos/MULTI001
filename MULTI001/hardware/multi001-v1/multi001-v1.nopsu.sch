@@ -1,0 +1,269 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L multi001:D1-MINI-V2 U1
+U 1 1 60D8D968
+P 6050 1100
+F 0 "U1" H 6050 1365 50  0000 C CNN
+F 1 "D1-MINI-V2" H 6050 1274 50  0000 C CNN
+F 2 "multi001-v1:DIP-16_900_ELL" H 6050 1100 50  0001 C CNN
+F 3 "" H 6050 1100 50  0001 C CNN
+	1    6050 1100
+	1    0    0    -1  
+$EndComp
+Text Label 5750 1200 2    50   ~ 0
+LUX
+Text Label 5750 1400 2    50   ~ 0
+PIR
+Wire Wire Line
+	6350 1800 6450 1800
+Wire Wire Line
+	6450 1800 6450 2000
+Wire Wire Line
+	6350 1700 6550 1700
+Text Label 6350 1400 0    50   ~ 0
+TEMP
+NoConn ~ 5750 1100
+NoConn ~ 5750 1300
+NoConn ~ 5750 1500
+NoConn ~ 5750 1600
+NoConn ~ 5750 1700
+NoConn ~ 6350 1600
+NoConn ~ 6350 1500
+NoConn ~ 6350 1300
+NoConn ~ 6350 1200
+NoConn ~ 6350 1100
+$Comp
+L Connector:Screw_Terminal_01x10 J1
+U 1 1 61904EE0
+P 2950 1500
+F 0 "J1" H 2950 2000 50  0000 C CNN
+F 1 "Screw_Terminal_01x10" H 2950 900 50  0001 C CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x10_P2.54mm_Vertical" H 2950 1500 50  0001 C CNN
+F 3 "~" H 2950 1500 50  0001 C CNN
+	1    2950 1500
+	-1   0    0    -1  
+$EndComp
+Text Label 4350 1200 0    50   ~ 0
+LUX
+Text Notes 2800 1300 2    50   ~ 0
+PIR_+12V
+Text Notes 2800 1400 2    50   ~ 0
+PIR_GND
+Text Notes 2800 1100 2    50   ~ 0
+PIR_SIG
+Text Notes 2800 1200 2    50   ~ 0
+PIR_LUX
+Text Notes 2800 1700 2    50   ~ 0
+TEMP_DQ
+Text Notes 2800 1800 2    50   ~ 0
+TEMP_GND
+Text Notes 2800 2000 2    50   ~ 0
+POWER_+12V
+Text Notes 2800 1900 2    50   ~ 0
+POWER_GND
+$Comp
+L Device:R_Small R3
+U 1 1 619F2CCB
+P 3350 1100
+F 0 "R3" V 3300 900 50  0000 L CNN
+F 1 "9K1" V 3350 1100 35  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal" H 3350 1100 50  0001 C CNN
+F 3 "~" H 3350 1100 50  0001 C CNN
+	1    3350 1100
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_Small R4
+U 1 1 619F33C9
+P 3350 1200
+F 0 "R4" V 3300 1000 50  0000 L CNN
+F 1 "9K1" V 3350 1200 35  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal" H 3350 1200 50  0001 C CNN
+F 3 "~" H 3350 1200 50  0001 C CNN
+	1    3350 1200
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:R_Small R1
+U 1 1 619F3C43
+P 3550 1350
+F 0 "R1" H 3650 1250 50  0000 R CNN
+F 1 "3K2" V 3550 1400 35  0000 R CNN
+F 2 "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal" H 3550 1350 50  0001 C CNN
+F 3 "~" H 3550 1350 50  0001 C CNN
+	1    3550 1350
+	-1   0    0    1   
+$EndComp
+$Comp
+L Device:R_Small R2
+U 1 1 619F4E51
+P 3650 1350
+F 0 "R2" H 3650 1450 50  0000 R CNN
+F 1 "3K2" V 3650 1350 35  0000 C CNN
+F 2 "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal" H 3650 1350 50  0001 C CNN
+F 3 "~" H 3650 1350 50  0001 C CNN
+	1    3650 1350
+	1    0    0    -1  
+$EndComp
+Text Label 4350 1100 0    50   ~ 0
+PIR
+Text Label 4350 1700 0    50   ~ 0
+TEMP
+$Comp
+L Device:R_Small R5
+U 1 1 61A1FD8F
+P 3450 1800
+F 0 "R5" V 3500 1600 50  0000 L CNN
+F 1 "4K7" V 3450 1750 35  0000 L CNN
+F 2 "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P5.08mm_Horizontal" H 3450 1800 50  0001 C CNN
+F 3 "~" H 3450 1800 50  0001 C CNN
+	1    3450 1800
+	0    -1   -1   0   
+$EndComp
+Text Notes 2800 1600 2    50   ~ 0
+TEMP_+3.3
+$Comp
+L Converter_DCDC:OKI-78SR-5_1.5-W36-C U2
+U 1 1 61A3CF86
+P 3650 2000
+F 0 "U2" H 3650 2150 50  0000 C CNN
+F 1 "OKI-78SR-5_1.5-W36-C" H 3650 2240 50  0001 C CNN
+F 2 "Converter_DCDC:Converter_DCDC_TRACO_TSR-1_THT" H 3700 1750 50  0001 L CIN
+F 3 "https://power.murata.com/data/power/oki-78sr.pdf" H 3650 2000 50  0001 C CNN
+	1    3650 2000
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6550 1700 6550 2400
+$Comp
+L power:PWR_FLAG #FLG0101
+U 1 1 61AA5017
+P 4150 2000
+F 0 "#FLG0101" H 4150 2075 50  0001 C CNN
+F 1 "PWR_FLAG" H 4150 2173 50  0000 C CNN
+F 2 "" H 4150 2000 50  0001 C CNN
+F 3 "~" H 4150 2000 50  0001 C CNN
+	1    4150 2000
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:GND #PWR0101
+U 1 1 61A02104
+P 6550 2400
+F 0 "#PWR0101" H 6550 2150 50  0001 C CNN
+F 1 "GND" H 6555 2227 50  0000 C CNN
+F 2 "" H 6550 2400 50  0001 C CNN
+F 3 "" H 6550 2400 50  0001 C CNN
+	1    6550 2400
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3350 2000 3300 2000
+$Comp
+L power:GND #PWR?
+U 1 1 61A848DA
+P 3650 2400
+F 0 "#PWR?" H 3650 2150 50  0001 C CNN
+F 1 "GND" H 3655 2227 50  0000 C CNN
+F 2 "" H 3650 2400 50  0001 C CNN
+F 3 "" H 3650 2400 50  0001 C CNN
+	1    3650 2400
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3250 1900 3250 2400
+Wire Wire Line
+	3150 1900 3250 1900
+Wire Wire Line
+	3250 2400 3650 2400
+Wire Wire Line
+	3650 2300 3650 2400
+Connection ~ 3650 2400
+Wire Wire Line
+	3950 2000 4150 2000
+Wire Wire Line
+	3250 1900 3250 1800
+Wire Wire Line
+	3250 1800 3150 1800
+Connection ~ 3250 1900
+Wire Wire Line
+	4950 1600 4950 1800
+Wire Wire Line
+	4950 1800 5750 1800
+Wire Wire Line
+	3150 1600 3350 1600
+Connection ~ 3350 1600
+Wire Wire Line
+	3350 1600 3350 1800
+Wire Wire Line
+	3350 1600 4950 1600
+Wire Wire Line
+	3150 1700 3550 1700
+Wire Wire Line
+	3550 1800 3550 1700
+Connection ~ 3550 1700
+Wire Wire Line
+	3550 1700 4350 1700
+NoConn ~ 3150 1500
+Wire Wire Line
+	3150 1100 3250 1100
+Wire Wire Line
+	3150 1200 3250 1200
+Connection ~ 4150 2000
+Wire Wire Line
+	4150 2000 6450 2000
+Wire Wire Line
+	3150 1400 3250 1400
+Wire Wire Line
+	3350 1400 3350 1500
+Wire Wire Line
+	3350 1500 3550 1500
+Wire Wire Line
+	3450 1100 3650 1100
+Wire Wire Line
+	3450 1200 3550 1200
+Wire Wire Line
+	3650 1500 3650 1450
+Wire Wire Line
+	3550 1450 3550 1500
+Connection ~ 3550 1500
+Wire Wire Line
+	3550 1500 3650 1500
+Wire Wire Line
+	3550 1250 3550 1200
+Connection ~ 3550 1200
+Wire Wire Line
+	3550 1200 4350 1200
+Wire Wire Line
+	3650 1250 3650 1100
+Connection ~ 3650 1100
+Wire Wire Line
+	3650 1100 4350 1100
+Wire Wire Line
+	3300 2000 3300 1300
+Wire Wire Line
+	3300 1300 3150 1300
+Connection ~ 3300 2000
+Wire Wire Line
+	3300 2000 3150 2000
+Wire Wire Line
+	3250 1800 3250 1400
+Connection ~ 3250 1800
+Connection ~ 3250 1400
+Wire Wire Line
+	3250 1400 3350 1400
+$EndSCHEMATC

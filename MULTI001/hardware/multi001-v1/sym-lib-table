@@ -1,3 +1,4 @@
 (sym_lib_table
   (lib (name multi001)(type Legacy)(uri ${KIPRJMOD}/multi001.lib)(options "")(descr ""))
+  (lib (name multi001-v1.nopsu-rescue)(type Legacy)(uri ${KIPRJMOD}/multi001-v1.nopsu-rescue.lib)(options "")(descr ""))
 )
