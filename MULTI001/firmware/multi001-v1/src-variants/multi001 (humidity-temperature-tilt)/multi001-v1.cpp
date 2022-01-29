@@ -9,34 +9,31 @@
  * DESCRIPTION
  *   This firmware implements an IoT MQTT client which reports sensor
  *   data form a range of devices that may be connected to a Wemos D1
- *   Mini microcontroller. As far as possible, connected sensors are
- *   automatically identified.
+ *   Mini microcontroller. The following sensors are supported.
  * 
- *   D1 & D2 [12C BUS] - AM2320 humidity & temperature sensor.
- *   D5 - SPST switch
- *   D6 - SPST switch
- *   D7 - SPST switch
- *   D8 - SPST switch
+ *   1. AM2320 humidity & temperature
+ *      This sensor connects via the I2C bus on pins D1 & D2. The sensor
+ *      is automatically detected and no user configuration is required.
+ *      
+ *      Property name       Value
+ *      humidity            Integer percent in the range 0..100
+ *      temperature         Integer Celsius in the range -40..80
  * 
- * of different sensor typessupports a
- *   monitors ambient
- *   temperature and humidity and the orientation of an attached tilt
- *   sensor.
+ *   2. SPST switches
+ *      A maximum of four switches (SW0, SW1, SW2 and SW3) are supported
+ *      with active-low connection to pins D5, D6, D7 and D8. Switches
+ *      must be manually configured by assigning a property name at module
+ *      configuration to each active switch.
  * 
- *   Readings are published to a user defined topic on a user configured
- *   MQTT server (see CONFIGURATION below) as a JSON MQTT message of the
- *   form:
+ *      Property name       Value
+ *      as configured       Integer boolean 0 or 1 (OFF or ON) 
  * 
- *   '{ "humidity": humidity, "temperature": temperature, "tilt": tilt  }'
+ *   A JSON object containing properties relating to detected and/or
+ *   configured sensors are published to a user defined topic on a user
+ *   configured MQTT server (see CONFIGURATION below).
  * 
- *   where:
- * 
- *     humidity is an integer percentage value in the range 0..100;
- *     temperature is an integer Celsius value in the range -40..80;
- *     tilt is integer boolean (1 or 0) indicating 'on' or 'off'.
- * 
- *   The value 999 (undefined) is published to indicate that reading
- *   the associated sensor failed for whatever reason.
+ *   The value 999, meaning undefined, is published to indicate that
+ *   reading the associated sensor failed for whatever reason.
  * 
  *   The defined MQTT topic is updated whenever a sensor value changes
  *   or once every 30 seconds. The maximum update rate is once every
@@ -110,10 +107,9 @@
 
 #define MQTT_PUBLISH_SOFT_INTERVAL 3000
 #define MQTT_PUBLISH_HARD_INTERVAL 30000
-#define MQTT_CLIENT_ID "%02x%02x%02x%02x%02x%02x" 
 
-#define STORAGE_TEST_ADDRESS 0
-#define STORAGE_TEST_VALUE 0xAE
+#define EEPROM_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS 0
+#define EEPROM_IS_CONFIGURED_TOKEN_VALUE 0xAE
 #define MQTT_CONFIG_STORAGE_ADDRESS 1
 
 #define JSON_BUFFER_SIZE 300
@@ -196,7 +192,7 @@ void dumpConfig(MQTT_CONFIG &config) {
 boolean loadConfig(MQTT_CONFIG &config) {
   boolean retval = false;
   EEPROM.begin(512);
-  if (EEPROM.read(0) == STORAGE_TEST_VALUE) {
+  if (EEPROM.read(EEPROM_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS) == EEPROM_IS_CONFIGURED_TOKEN_VALUE) {
     EEPROM.get(MQTT_CONFIG_STORAGE_ADDRESS, config);
     retval = true;
   }
@@ -210,7 +206,7 @@ void saveConfig(MQTT_CONFIG &config) {
   dumpConfig(config);
   #endif
   EEPROM.begin(512);
-  EEPROM.write(0, STORAGE_TEST_VALUE);
+  EEPROM.write(EEPROM_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS, EEPROM_IS_CONFIGURED_TOKEN_VALUE);
   EEPROM.put(MQTT_CONFIG_STORAGE_ADDRESS, config);
   EEPROM.commit();
   EEPROM.end();
