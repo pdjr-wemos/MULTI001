@@ -41,43 +41,26 @@
  * 
  * CONFIGURATION
  * 
- * The module automatically enters configuration mode when it is unable
- * to connect to an already configured WiFi host network or on first use
- * when no host network has been configured.
- * 
- * In configuration mode the module operates as a wireless access pointOn first use the
- * module must be configured by the user who is required to specify
- * the SSID and password of the hsensed data is
- * published to a user specified MQTT topic on a user defined MQTT
- * server accessed over a user-specfifiea JSON styled message of the form:
- * 
- *   '{ "temperature": t, "lux": l, "motion": m }'
- * 
- * to a user specified topic on a nominated MQTT server.
- * 
- * The code supports a DS18B20 temperature sensor reporting the sensed
- * value <t> in degrees centigrade.
- * 
- * Illumination (lux) level <l> (in the range 0..1023) and detected
- * motion <m> (as 0 or 1) are assumed to derive from a luxControl
- * SmartDim Sensor 2.
- * 
  * On first use (and also when the device is unable to connect to a
  * previously configured wireless network) the device will operate as
- * a wireless access point with the SSID "MULTISENSOR-xxxxxxxxxxxx",
+ * an open wireless access point with the SSID "MULTISENSOR-xxxxxxxxxxxx",
  * where "xxxxxxxxxxxx" is the MAC address of the host wireless
  * interface.
  * 
- * Connecting to the access point will open a captured portal that
- * allows configuration of the following settings:
+ * Connection to this access point will open a captive portal that
+ * allows user configuration of the following properties:
  * 
  * network - the SSID of the network to which the device should connect
- * password - any password required for connection to ssid
+ * password - any password required for connection to specified network
  * server name - the name or IP address of the target MQTT server
  * server port - the port on which the server listens (default 1886)
  * username - login user name required for access to the server
  * password - login password for username
- * topic - the topic on serve<ArduinoJSON.h>ve@pdjr.eu>
+ * topic - the topic on which to publish data
+ * prop name for SW[0..3] - the JSON property name to be used for SW[0..3]
+ * 
+ * When the configuration is saved the device will immediately reboot
+ * and attempt to enter production with the specified configuration.
  */
  
 #include <Arduino.h>
