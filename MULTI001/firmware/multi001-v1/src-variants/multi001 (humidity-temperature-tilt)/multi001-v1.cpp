@@ -7,20 +7,28 @@
  *   AM2320 (humidity and temperature)
  *   HXD-2801 (ball tilt switch)
  * DESCRIPTION
- *   This firmware implements an IoT MQTT client which monitors
- *   ambient temperature and humidity and the orientation of an
- *   attached tilt sensor.
+ *   This firmware implements an IoT MQTT client which monitors ambient
+ *   temperature and humidity and the orientation of an attached tilt
+ *   sensor.
  * 
- *   Readings are published to a configured MQTT server (see
- *   below) as a JSON MQTT message of the form:
+ *   Readings are published to a user defined topic on a user configured
+ *   MQTT server (see CONFIGURATION below) as a JSON MQTT message of the
+ *   form:
  * 
  *   '{ "humidity": humidity, "temperature": temperature, "tilt": tilt  }'
  * 
  *   where:
  * 
- *     humidity is a decimal percentage value in the range 0.0 - 100.0;
- *     temperature is decimal degrees Celsius value in the range -40.0 - 80.0;
- *     tilt is integer boolean, 0 or 1, indicating whether the tilt switch is 'on' or 'off'. 
+ *     humidity is an integer percentage value in the range 0..100;
+ *     temperature is an integer Celsius value in the range -40..80;
+ *     tilt is integer boolean (1 or 0) indicating 'on' or 'off'.
+ * 
+ *   The value 999 (undefined) is published to indicate that reading
+ *   the associated sensor failed for whatever reason.
+ * 
+ *   The defined MQTT topic is updated whenever a sensor value changes
+ *   or once every 30 seconds. The maximum update rate is once every
+ *   three seconds.
  * 
  * CONFIGURATION
  * 
@@ -77,12 +85,16 @@
 #include <WiFiManager.h>
 #include <EEPROM.h>
 #include <Wire.h>
-#include "AM232X.h"
+#include <AM232X.h>
+#include <ArduinoJSON.h>
 
 #define DEBUG_SERIAL                      // Enable debug messages
 #define DEBUG_SERIAL_START_DELAY 2000     // Milliseconds wait before output
 
 #define GPIO_SW0 14                       // D1-MINI pin D5
+#define GPIO_SW1 15                       // D1-MINI pin D5
+#define GPIO_SW2 16                       // D1-MINI pin D5
+#define GPIO_SW3 17                       // D1-MINI pin D5
 
 #define MODULE_ID_FORMAT "MULTISENSOR-%02x%02x%02x%02x%02x%02x"
 #define MQTT_DEFAULT_TOPIC_FORMAT "%s/status"
@@ -90,36 +102,39 @@
 #define WIFI_SERVER_PORT 80               
 #define WIFI_ACCESS_POINT_PORTAL_TIMEOUT 180 // In seconds
 
-#define MQTT_PUBLISH_INTERVAL 30000
+#define MQTT_PUBLISH_SOFT_INTERVAL 3000
+#define MQTT_PUBLISH_HARD_INTERVAL 30000
 #define MQTT_CLIENT_ID "%02x%02x%02x%02x%02x%02x"
-#define MQTT_STATUS_MESSAGE "{ \"humidity\": %f, \"temperature\": %f, \"tilt\": %d }" 
+#define MQTT_STATUS_MESSAGE "{ \"humidity\": %d, \"temperature\": %d, \"tilt\": %d }" 
 
 #define STORAGE_TEST_ADDRESS 0
 #define STORAGE_TEST_VALUE 0xAE
 #define MQTT_CONFIG_STORAGE_ADDRESS 1
 
-#define TEMPERATURE_ERROR_VALUE 999.99
-#define HUMIDITY_ERROR_VALUE 999.99
+#define AM2322_STARTUP_DELAY 2000
+#define SENSOR_UNDEFINED_VALUE 999
 
 /**********************************************************************
  * Structure to store MQTT configuration properties.
  */
 struct MQTT_CONFIG { 
-  char servername[40];  // MQTT server Hostname or IP address
-  int  serverport;      // MQTT service port (normally 1883)
-  char username[20];    // Name of user who can publish to the server
-  char password[20];    // Password of named user
-  char topic[60];       // MQTT topic on which to publish
+  char servername[40];     // MQTT server Hostname or IP address
+  int  serverport;         // MQTT service port (normally 1883)
+  char username[20];       // Name of user who can publish to the server
+  char password[20];       // Password of named user
+  char topic[60];          // MQTT topic on which to publish
+  char propertyname0[20];
+  char propertyname1[20];
+  char propertyname2[20];
+  char propertyname3[20];
 };
-
-#define TEMPERATURE_SENSOR_DETECT_TRIES 5
-#define TEMPERATURE_SENSOR_I2C_ADDRESS 18
 
 WiFiServer wifiServer(WIFI_SERVER_PORT);
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
 AM232X AM2322;
+
 
 /**********************************************************************
  * Setup a WiFi connection to <ssid>, <password> and only return once
@@ -165,6 +180,10 @@ void dumpConfig(MQTT_CONFIG &config) {
   Serial.print("MQTT username: "); Serial.println(config.username);
   Serial.print("MQTT password: "); Serial.println(config.password);
   Serial.print("MQTT topic: "); Serial.println(config.topic);
+  Serial.print("MQTT SW0 property name: "); Serial.println(config.topic);
+  Serial.print("MQTT SW1 property name: "); Serial.println(config.topic);
+  Serial.print("MQTT SW2 property name: "); Serial.println(config.topic);
+  Serial.print("MQTT SW3 property name: "); Serial.println(config.topic);
   #endif
 }
 
@@ -201,10 +220,21 @@ byte macAddress[6];
 char moduleId[40];
 char defaultTopic[60];
 MQTT_CONFIG mqttConfig;
+StaticJsonDocument<200> jsonBuffer;
 
-float DETECTED_HUMIDITY = 0.0; // Percent
-float DETECTED_TEMPERATURE = 0.0; // Degrees Celsius
-int DETECTED_TILT = 0; // 0 = no tilt detected, 1 = tilt detected
+int CURRENT_HUMIDITY = SENSOR_UNDEFINED_VALUE; // Percent
+int CURRENT_TEMPERATURE = SENSOR_UNDEFINED_VALUE; // Degrees Celsius
+int CURRENT_SW0 = SENSOR_UNDEFINED_VALUE; // 0 = no tilt detected, 1 = tilt detected
+int CURRENT_SW1 = SENSOR_UNDEFINED_VALUE; // 0 = no tilt detected, 1 = tilt detected
+int CURRENT_SW2 = SENSOR_UNDEFINED_VALUE; // 0 = no tilt detected, 1 = tilt detected
+int CURRENT_SW3 = SENSOR_UNDEFINED_VALUE; // 0 = no tilt detected, 1 = tilt detected
+
+int PREVIOUS_HUMIDITY = CURRENT_HUMIDITY; // Percent
+int PREVIOUS_TEMPERATURE = CURRENT_TEMPERATURE; // Degrees Celsius
+int PREVIOUS_SW0 = CURRENT_SW0; // 0 = no tilt detected, 1 = tilt detected
+int PREVIOUS_SW1 = CURRENT_SW1; // 0 = no tilt detected, 1 = tilt detected
+int PREVIOUS_SW2 = CURRENT_SW2; // 0 = no tilt detected, 1 = tilt detected
+int PREVIOUS_SW3 = CURRENT_SW3; // 0 = no tilt detected, 1 = tilt detected
 
 void setup() {
   #ifdef DEBUG_SERIAL
@@ -227,6 +257,10 @@ void setup() {
   WiFiManagerParameter custom_mqtt_username("user", "mqtt user", "", 20);
   WiFiManagerParameter custom_mqtt_password("pass", "mqtt pass", "", 20);
   WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", defaultTopic, 40);
+  WiFiManagerParameter custom_mqtt_property_name_0("prop0", "mqtt prop name for SW0", "", 20);
+  WiFiManagerParameter custom_mqtt_property_name_1("prop1", "mqtt prop name for SW1", "", 20);
+  WiFiManagerParameter custom_mqtt_property_name_2("prop2", "mqtt prop name for SW2", "", 20);
+  WiFiManagerParameter custom_mqtt_property_name_3("prop3", "mqtt prop name for SW3", "", 20);
   
   // Try to load the module configuration.
   if (loadConfig(mqttConfig)) {
@@ -239,6 +273,10 @@ void setup() {
     WiFiManagerParameter custom_mqtt_username("user", "mqtt user", mqttConfig.username, 20);
     WiFiManagerParameter custom_mqtt_password("pass", "mqtt pass", mqttConfig.password, 20);
     WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", mqttConfig.topic, 40);
+    WiFiManagerParameter custom_mqtt_property_name_0("prop0", "mqtt prop name for SW0", mqttConfig.propertyname0, 20);
+    WiFiManagerParameter custom_mqtt_property_name_1("prop1", "mqtt prop name for SW1", mqttConfig.propertyname1, 20);
+    WiFiManagerParameter custom_mqtt_property_name_2("prop2", "mqtt prop name for SW2", mqttConfig.propertyname2, 20);
+    WiFiManagerParameter custom_mqtt_property_name_3("prop3", "mqtt prop name for SW3", mqttConfig.propertyname3, 20);
   } else {
     wifiManager.resetSettings();
   }  
@@ -252,6 +290,10 @@ void setup() {
   wifiManager.addParameter(&custom_mqtt_username);
   wifiManager.addParameter(&custom_mqtt_password);
   wifiManager.addParameter(&custom_mqtt_topic);
+  wifiManager.addParameter(&custom_mqtt_property_name_0);
+  wifiManager.addParameter(&custom_mqtt_property_name_1);
+  wifiManager.addParameter(&custom_mqtt_property_name_2);
+  wifiManager.addParameter(&custom_mqtt_property_name_3);
   
   // Finally, start the WiFi manager. 
   bool res = wifiManager.autoConnect(moduleId);
@@ -263,6 +305,10 @@ void setup() {
     strcpy(mqttConfig.username, custom_mqtt_username.getValue());
     strcpy(mqttConfig.password, custom_mqtt_password.getValue());
     strcpy(mqttConfig.topic, custom_mqtt_topic.getValue());
+    strcpy(mqttConfig.propertyname0, custom_mqtt_property_name_0.getValue());
+    strcpy(mqttConfig.propertyname1, custom_mqtt_property_name_1.getValue());
+    strcpy(mqttConfig.propertyname2, custom_mqtt_property_name_2.getValue());
+    strcpy(mqttConfig.propertyname3, custom_mqtt_property_name_3.getValue());
     saveConfig(mqttConfig);
   }
 
@@ -288,45 +334,72 @@ void setup() {
       while (1);
     }
     AM2322.wakeUp();
-    delay(2000);
     pinMode(GPIO_SW0, INPUT_PULLUP);
+    delay(AM2322_STARTUP_DELAY);
   }
 }
 
 /**********************************************************************
- * Check that we have an MQTT connection and if not, try and make one.
- * Otherwise, once every MQTT_PUBLISH_INTERVAL miliseconds read the
- * sensors and update the MQTT server.
+ * Check that we have an MQTT connection and, if not, try and make one
+ * and once we have a connection we can...
+ * 
+ * Once every MQTT_PUBLISH_SOFT_INTERVAL miliseconds read the sensors.
+ * If the sensor values have changed since the most recently published
+ * or MQTT_PUBLISH_HARD_INTERVAL has elapsed then update the configured
+ * topic on the connected MQTT server.
  */
 void loop() {
-  static long mqttPublishDeadline = 0L;
+  static long mqttPublishSoftDeadline = 0L;
+  static long mqttPublishHardDeadline = 0L;
   static char mqttStatusMessage[128];
   long now = millis();
 
+  // Try and recover a failed server connection
   if (!mqttClient.connected()) connect_to_mqtt(mqttConfig.servername, mqttConfig.serverport, mqttConfig.username, mqttConfig.password, moduleId);
+  
+  // Perform connection houskeeping
   mqttClient.loop();
 
-  if (now > mqttPublishDeadline) {
-    DETECTED_TILT = digitalRead(GPIO_SW0);
-  
+  // Check if our time has come
+  if (now > mqttPublishSoftDeadline) {
+    // Read sensors
+    if (strlen(mqttConfig.propertyname0)) CURRENT_SW0 = digitalRead(GPIO_SW0);
+    if (strlen(mqttConfig.propertyname1)) CURRENT_SW1 = digitalRead(GPIO_SW1);
+    if (strlen(mqttConfig.propertyname2)) CURRENT_SW2 = digitalRead(GPIO_SW1);
+    if (strlen(mqttConfig.propertyname3)) CURRENT_SW3 = digitalRead(GPIO_SW3);
     if (AM2322.read() == AM232X_OK) {
-      DETECTED_TEMPERATURE = AM2322.getTemperature();
-      DETECTED_HUMIDITY = AM2322.getHumidity();
+      CURRENT_TEMPERATURE = (int) round(AM2322.getTemperature());
+      CURRENT_HUMIDITY = (int) round(AM2322.getHumidity());
     } else {
-      DETECTED_TEMPERATURE = TEMPERATURE_ERROR_VALUE;
-      DETECTED_HUMIDITY = HUMIDITY_ERROR_VALUE;
+      CURRENT_TEMPERATURE = SENSOR_UNDEFINED_VALUE;
+      CURRENT_HUMIDITY = SENSOR_UNDEFINED_VALUE;
     }
+    // Check if we should actually publish this data
+    if ((CURRENT_HUMIDITY != PREVIOUS_HUMIDITY) || (CURRENT_TEMPERATURE != PREVIOUS_TEMPERATURE) || (CURRENT_SW0 != PREVIOUS_SW0) || (CURRENT_SW1 != PREVIOUS_SW1) || (CURRENT_SW2 != PREVIOUS_SW2) || (CURRENT_SW3 != PREVIOUS_SW3) || (now > mqttPublishHardDeadline)) {
+      jsonBuffer["humidity"] = CURRENT_HUMIDITY;
+      jsonBuffer["temperature"] = CURRENT_TEMPERATURE;
+      if (strlen(mqttConfig.propertyname0)) jsonBuffer[mqttConfig.propertyname0] = CURRENT_SW0;
+      if (strlen(mqttConfig.propertyname1)) jsonBuffer[mqttConfig.propertyname1] = CURRENT_SW1;
+      if (strlen(mqttConfig.propertyname2)) jsonBuffer[mqttConfig.propertyname2] = CURRENT_SW2;
+      if (strlen(mqttConfig.propertyname3)) jsonBuffer[mqttConfig.propertyname3] = CURRENT_SW3;
+      serializeJson(jsonBuffer, mqttStatusMessage);
+      mqttClient.publish(mqttConfig.topic, mqttStatusMessage, true);
+      PREVIOUS_HUMIDITY = CURRENT_HUMIDITY;
+      PREVIOUS_TEMPERATURE = CURRENT_TEMPERATURE;
+      PREVIOUS_SW0 = CURRENT_SW0;
+      PREVIOUS_SW1 = CURRENT_SW1;
+      PREVIOUS_SW2 = CURRENT_SW2;
+      PREVIOUS_SW3 = CURRENT_SW3;
 
-    sprintf(mqttStatusMessage, MQTT_STATUS_MESSAGE, DETECTED_HUMIDITY, DETECTED_TEMPERATURE, DETECTED_TILT);
-    mqttClient.publish(mqttConfig.topic, mqttStatusMessage, true);
+      #ifdef DEBUG_SERIAL
+        Serial.print("Publishing ");
+        Serial.print(mqttStatusMessage);
+        Serial.print(" to ");
+        Serial.println(mqttConfig.topic);
+      #endif
 
-    #ifdef DEBUG_SERIAL
-      Serial.print("Writing ");
-      Serial.print(mqttStatusMessage);
-      Serial.print(" to ");
-      Serial.println(mqttConfig.topic);
-    #endif
-
-    mqttPublishDeadline = (now + MQTT_PUBLISH_INTERVAL);
+      mqttPublishHardDeadline = (now + MQTT_PUBLISH_HARD_INTERVAL);
+    }
+    mqttPublishSoftDeadline = (now + MQTT_PUBLISH_SOFT_INTERVAL);
   }
 }
