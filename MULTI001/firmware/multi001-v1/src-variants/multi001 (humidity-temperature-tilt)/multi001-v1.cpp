@@ -48,16 +48,30 @@
  * interface.
  * 
  * Connection to this access point will open a captive portal that
- * allows user configuration of the following properties:
+ * allows the user to configure the following properties:
  * 
- * network - the SSID of the network to which the device should connect
- * password - any password required for connection to specified network
- * server name - the name or IP address of the target MQTT server
- * server port - the port on which the server listens (default 1886)
- * username - login user name required for access to the server
- * password - login password for username
- * topic - the topic on which to publish data
- * prop name for SW[0..3] - the JSON property name to be used for SW[0..3]
+ * network                 The SSID of the host network to which the
+ *                         device should connect.
+ * 
+ * password                The password (if any) required to connect to
+ *                         specified host network.
+ * 
+ * server name             The name or IP address of the MQTT server to
+ *                         which status updates should be sent.
+ * 
+ * server port             The port on which the server listens (default
+ *                         1886).
+ * 
+ * username                The login user name required for access to
+ *                         server name.
+ * 
+ * password                The login password for username.
+ * 
+ * topic                   The topic on which to publish data.
+ * 
+ * prop name for SW[0..3]  A JSON property name to be used for each of
+ *                         switches SW[0..3]. Not supplying a property
+ *                         name disables the associated switch input.
  * 
  * When the configuration is saved the device will immediately reboot
  * and attempt to enter production with the specified configuration.
@@ -71,12 +85,15 @@
 #include <Wire.h>
 #include <AM232X.h>
 #include <ArduinoJson.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #define DEBUG_SERIAL                      // Enable debug messages
 #define DEBUG_SERIAL_START_DELAY 2000     // Milliseconds wait before output
 
 #define GPIO_SCL 1                        // I2C SCL
 #define GPIO_SDA 2                        // I2C SDA
+#define GPIO_ONE_WIRE_BUS 4               // For Dallas temperature sensors
 #define GPIO_SW0 5                        // SPST switch
 #define GPIO_SW1 6                        // SPST switch
 #define GPIO_SW2 7                        // SPST switch
@@ -99,8 +116,10 @@
 #define AM2322_STARTUP_DELAY 2000
 #define SENSOR_UNDEFINED_VALUE 999
 
+#define DALLAS_ADDRESS_FORMAT "DST%02x%02x%02x%02x%02x%02x%02x%02x"
+
 /**********************************************************************
- * Structure to store MQTT configuration properties.
+ * Structure to store module configuration properties.
  */
 struct MQTT_CONFIG { 
   char servername[40];     // MQTT server Hostname or IP address
@@ -114,24 +133,24 @@ struct MQTT_CONFIG {
   char sw3propertyname[20];
 };
 
+/**********************************************************************
+ * Globals representing WiFi and MQTT entities.
+ */
 WiFiServer wifiServer(WIFI_SERVER_PORT);
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-AM232X AM2322;
-
+/**********************************************************************
+ * Globals representing sensor entities.
+ */
+AM232X AM2322;                    // I2C humidity/temperature
+OneWire oneWire(GPIO_ONE_WIRE_BUS);
+DallasTemperature temperatureSensors(&oneWire);
 
 /**********************************************************************
- * Setup a WiFi connection to <ssid>, <password> and only return once
- * a connection is established.
- */ 
-void setup_wifi(const char* ssid, const char* password) {
-  delay(10);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);  
-  while (WiFi.status() != WL_CONNECTED) delay(500);
-}
-
+ * Used by loop() to automatically reconnect to the specified MQTT
+ * server if the connection fails for any reason.
+ */
 void connect_to_mqtt(const char* servername, const int serverport, const char* username, const char* password, const char* clientid) {
   while (!mqttClient.connected()) {
     #ifdef DEBUG_SERIAL
@@ -158,6 +177,9 @@ void connect_to_mqtt(const char* servername, const int serverport, const char* u
   }
 }
 
+/**********************************************************************
+ * Debug dump the content of the specified configuration object.
+ */
 void dumpConfig(MQTT_CONFIG &config) {
   #ifdef DEBUG_SERIAL
   Serial.print("MQTT server name: "); Serial.println(config.servername);
@@ -172,6 +194,9 @@ void dumpConfig(MQTT_CONFIG &config) {
   #endif
 }
 
+/**********************************************************************
+ * Load the specified configuration object with data from EEPROM.
+ */
 boolean loadConfig(MQTT_CONFIG &config) {
   boolean retval = false;
   EEPROM.begin(512);
@@ -183,6 +208,9 @@ boolean loadConfig(MQTT_CONFIG &config) {
   return(retval);
 }
 
+/**********************************************************************
+ * Save the specified configuration object to EEPROM.
+ */
 void saveConfig(MQTT_CONFIG &config) {
   #ifdef DEBUG_SERIAL
   Serial.println("Saving module configuration to EEPROM");
@@ -195,6 +223,12 @@ void saveConfig(MQTT_CONFIG &config) {
   EEPROM.end();
 }
 
+/**********************************************************************
+ * Method called when the user updates the module configuration through
+ * the captive portal and a global variable which is used to flag this
+ * fact for subsequent action.
+ */
+
 bool shouldSaveConfig = false;
 
 void saveConfigCallback() {
@@ -206,6 +240,7 @@ char moduleId[40];
 char defaultTopic[60];
 MQTT_CONFIG mqttConfig;
 StaticJsonDocument<JSON_BUFFER_SIZE> jsonBuffer;
+int dallasDeviceCount = 0;
 
 void setup() {
   #ifdef DEBUG_SERIAL
@@ -303,6 +338,20 @@ void setup() {
     // Sensor detection
     Serial.print("Detected sensors: ");
 
+    // Dallas one-wire temperature sensors
+    DeviceAddress dallasAddress;
+    char dallasAddressString[20];
+    temperatureSensors.begin();
+    if (dallasDeviceCount = temperatureSensors.getDeviceCount()) {
+      for (int i = 0; i < dallasDeviceCount; i++) {
+        if (temperatureSensors.getAddress(dallasAddress, i)) {
+          sprintf(dallasAddressString, DALLAS_ADDRESS_FORMAT, dallasAddress[0], dallasAddress[1], dallasAddress[2], dallasAddress[3], dallasAddress[4], dallasAddress[5], dallasAddress[6], dallasAddress[7]);
+          Serial.print(dallasAddressString);
+          Serial.print(" ");
+        }
+      }
+    }
+
     // AM2322 initialisation
     if (AM2322.begin()) {
       Serial.print("AM2322 ");
@@ -341,20 +390,22 @@ void setup() {
 }
 
 /**********************************************************************
- * Check that we have an MQTT connection and, if not, try and make one
- * and once we have a connection we can...
+ * Begin by checking that we have an active MQTT connection.  If not,
+ * then try to make one. 
  * 
  * Once every MQTT_PUBLISH_SOFT_INTERVAL miliseconds read the sensors.
- * If the sensor values have changed since the most recently published
+ * If the sensor values have changed from those most recently published
  * or MQTT_PUBLISH_HARD_INTERVAL has elapsed then update the configured
  * topic on the connected MQTT server.
  */
 void loop() {
   static long mqttPublishSoftDeadline = 0L;
   static long mqttPublishHardDeadline = 0L;
-  static char mqttStatusMessage[128];
+  static char mqttStatusMessage[256];
+  DeviceAddress dallasAddress;
+  char dallasAddressString[20];
   long now = millis();
-  int dirty = 0;
+  int dirty = false;
 
   // Try and recover a failed server connection
   if (!mqttClient.connected()) connect_to_mqtt(mqttConfig.servername, mqttConfig.serverport, mqttConfig.username, mqttConfig.password, moduleId);
@@ -364,6 +415,16 @@ void loop() {
 
   // Check if our time has come
   if (now > mqttPublishSoftDeadline) {
+
+    if (dallasDeviceCount) {
+      temperatureSensors.requestTemperatures();
+      for (int i = 0; i < dallasDeviceCount; i++) {
+        if (temperatureSensors.getAddress(dallasAddress, i)) {
+          sprintf(dallasAddressString, DALLAS_ADDRESS_FORMAT, dallasAddress[0], dallasAddress[1], dallasAddress[2], dallasAddress[3], dallasAddress[4], dallasAddress[5], dallasAddress[6], dallasAddress[7]);
+          if ((int) jsonBuffer[dallasAddressString] != (int) round(temperatureSensors.getTempC(dallasAddress))) { jsonBuffer[dallasAddressString] = (int) round(temperatureSensors.getTempC(dallasAddress)); dirty = true; }
+        }
+      }
+    }
 
     if (AM2322.isConnected()) {
       if (AM2322.read() == AM232X_OK) {
