@@ -1,8 +1,8 @@
 /*********************************************************************
  * NAME
- *   multiHTT-0.90.cpp - multi-sensor wireless MQTT node.
+ *   multi001-v1.cpp - multi-sensor wireless MQTT node.
  * PLATFORM
- *   Wemos MINI-D1
+ *   ESP8266/Wemos MINI-D1
  * SENSORS
  *   AM2320 (I2C humidity and temperature)
  *   SPST switches (x4)
@@ -35,6 +35,17 @@
  *      PROPERTY            VALUE
  *      humidity            Integer percent in the range 0..100
  *      temperature         Integer Celsius in the range -40..80
+ * 
+ *   3. DS18B20 temperature sensors
+ * 
+ *      An arbitrary number of sensors of this type can be connected to
+ *      the one-wire bus on GPIO13(D?). Sensors are automatically
+ *      detected and no user configuration is required. Each detected
+ *      sensor adds a property of the following form to the output
+ *      message.
+ * 
+ *      PROPERTY             VALUE
+ *      DS-address           Integer Celsius in the range -40..120
  *  
  *   A JSON object containing properties relating to detected and/or
  *   configured sensors are published to a user defined topic on a user
@@ -109,44 +120,50 @@
 
 #define MODULE_ID_FORMAT "MULTISENSOR-%02x%02x%02x%02x%02x%02x"
 
-#define DEFAULT_MQTT_PORT "1886"
-#define MQTT_DEFAULT_TOPIC_FORMAT "multisensor/%s"
-#define DEFAULT_PROPERTY_NAME_FOR_SW0 "sw0"
-#define DEFAULT_PROPERTY_NAME_FOR_SW1 "sw1"
+// User configuration access-point settings
+#define AP_PORTAL_SERVICE_PORT 80               
+#define AP_PORTAL_TIMEOUT 180
 
-#define WIFI_SERVER_PORT 80               
-#define WIFI_ACCESS_POINT_PORTAL_TIMEOUT 180 // In seconds
+// User configuration property settings and defaults
+#define CF_DEFAULT_MQTT_TOPIC_FORMAT "multisensor/%s"
+#define CF_DEFAULT_MQTT_SERVICE_PORT 1886
+#define CF_DEFAULT_PROPERTY_NAME_FOR_SW0 "sw0"
+#define CF_DEFAULT_PROPERTY_NAME_FOR_SW1 "sw1"
+#define CF_DEFAULT_MQTT_PUBLISH_SOFT_INTERVAL 3000
+#define CF_DEFAULT_MQTT_PUBLISH_HARD_INTERVAL 30000
 
-#define MQTT_PUBLISH_SOFT_INTERVAL 3000
-#define MQTT_PUBLISH_HARD_INTERVAL 30000
+// Persistent storage addresses and default values
+#define PS_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS 0
+#define PS_IS_CONFIGURED_TOKEN_VALUE 0xAE
+#define PS_USER_CONFIGURATION_STORAGE_ADDRESS 1
 
-#define EEPROM_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS 0
-#define EEPROM_IS_CONFIGURED_TOKEN_VALUE 0xAE
-#define MQTT_CONFIG_STORAGE_ADDRESS 1
+// Miscellaneous sensor configuration settings 
+#define AM2322_STARTUP_DELAY 2000
+#define DS18B20_NAME_FORMAT "DS-%02x%02x%02x%02x%02x%02x%02x%02x"
 
 #define JSON_BUFFER_SIZE 300
-#define AM2322_STARTUP_DELAY 2000
 #define SENSOR_UNDEFINED_VALUE 999
 
-#define DALLAS_ADDRESS_FORMAT "DST%02x%02x%02x%02x%02x%02x%02x%02x"
-
 /**********************************************************************
- * Structure to store module configuration properties.
+ * Structure to store user configuration. Note that the host network
+ * settings are managed and persisted by the module itself.
  */
-struct MQTT_CONFIG { 
-  char servername[40];     // MQTT server Hostname or IP address
-  int  serverport;         // MQTT service port (normally 1883)
-  char username[20];       // Name of user who can publish to the server
-  char password[20];       // Password of named user
-  char topic[60];          // MQTT topic on which to publish
-  char sw0propertyname[20];
-  char sw1propertyname[20];
+struct USER_CONFIGURATION { 
+  char servername[40];            // MQTT server Hostname or IP address
+  int  serverport;                // MQTT service port (normally 1883)
+  char username[20];              // Name of user who can publish to the server
+  char password[20];              // Password of named user
+  char topic[60];                 // MQTT topic on which to publish
+  int softpublicationinterval;    // Soft publication interval
+  int hardpublicationinterval;    // Hard publication interval
+  char sw0propertyname[20];       // Property name to use for first SPST switch
+  char sw1propertyname[20];       // Property name to use for second SPST switch
 };
 
 /**********************************************************************
  * Globals representing WiFi and MQTT entities.
  */
-WiFiServer wifiServer(WIFI_SERVER_PORT);
+WiFiServer wifiServer(AP_PORTAL_SERVICE_PORT);
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
@@ -154,8 +171,8 @@ PubSubClient mqttClient(wifiClient);
  * Globals representing sensor entities.
  */
 //AM232X AM2322;                    // I2C humidity/temperature
-//OneWire oneWire(GPIO_ONE_WIRE_BUS);
-//DallasTemperature temperatureSensors(&oneWire);
+OneWire oneWire(GPIO_ONE_WIRE_BUS);
+DallasTemperature DS18B20(&oneWire);
 
 /**********************************************************************
  * Used by loop() to automatically reconnect to the specified MQTT
@@ -190,7 +207,7 @@ void connect_to_mqtt(const char* servername, const int serverport, const char* u
 /**********************************************************************
  * Debug dump the content of the specified configuration object.
  */
-void dumpConfig(MQTT_CONFIG &config) {
+void dumpConfig(USER_CONFIGURATION &config) {
   #ifdef DEBUG_SERIAL
   Serial.print("MQTT server name: "); Serial.println(config.servername);
   Serial.print("MQTT server port: "); Serial.println(config.serverport);
@@ -199,34 +216,42 @@ void dumpConfig(MQTT_CONFIG &config) {
   Serial.print("MQTT topic: "); Serial.println(config.topic);
   Serial.print("MQTT SW0 property name: "); Serial.println(config.sw0propertyname);
   Serial.print("MQTT SW1 property name: "); Serial.println(config.sw1propertyname);
+  Serial.print("MQTT soft publication interval: "); Serial.println(config.softpublicationinterval);
+  Serial.print("MQTT hard publication interval: "); Serial.println(config.hardpublicationinterval);
   #endif
 }
 
 /**********************************************************************
  * Load the specified configuration object with data from EEPROM.
  */
-boolean loadConfig(MQTT_CONFIG &config) {
+boolean loadConfig(USER_CONFIGURATION &config) {
+  #ifdef DEBUG_SERIAL
+  Serial.println("Loading module configuration from EEPROM");
+  #endif
   boolean retval = false;
   EEPROM.begin(512);
-  if (EEPROM.read(EEPROM_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS) == EEPROM_IS_CONFIGURED_TOKEN_VALUE) {
-    EEPROM.get(MQTT_CONFIG_STORAGE_ADDRESS, config);
+  if (EEPROM.read(PS_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS) == PS_IS_CONFIGURED_TOKEN_VALUE) {
+    EEPROM.get(PS_USER_CONFIGURATION_STORAGE_ADDRESS, config);
     retval = true;
   }
   EEPROM.end();
+  #ifdef DEBUG_SERIAL
+  dumpConfig(config);
+  #endif
   return(retval);
 }
 
 /**********************************************************************
  * Save the specified configuration object to EEPROM.
  */
-void saveConfig(MQTT_CONFIG &config) {
+void saveConfig(USER_CONFIGURATION &config) {
   #ifdef DEBUG_SERIAL
   Serial.println("Saving module configuration to EEPROM");
   dumpConfig(config);
   #endif
   EEPROM.begin(512);
-  EEPROM.write(EEPROM_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS, EEPROM_IS_CONFIGURED_TOKEN_VALUE);
-  EEPROM.put(MQTT_CONFIG_STORAGE_ADDRESS, config);
+  EEPROM.write(PS_IS_CONFIGURED_TOKEN_STORAGE_ADDRESS, PS_IS_CONFIGURED_TOKEN_VALUE);
+  EEPROM.put(PS_USER_CONFIGURATION_STORAGE_ADDRESS, config);
   EEPROM.commit();
   EEPROM.end();
 }
@@ -245,12 +270,13 @@ void saveConfigCallback() {
 
 byte macAddress[6];
 char moduleId[40];
-char defaultTopic[60];
-MQTT_CONFIG mqttConfig;
+USER_CONFIGURATION mqttConfig;
+boolean userConfigurationLoaded = false;
 StaticJsonDocument<JSON_BUFFER_SIZE> jsonBuffer;
-int dallasDeviceCount = 0;
+int DS18B20_DEVICE_COUNT = 0;
 
 void setup() {
+  
   #ifdef DEBUG_SERIAL
   Serial.begin(57600);
   delay(DEBUG_SERIAL_START_DELAY);
@@ -261,38 +287,32 @@ void setup() {
   // component of the topic path (unless overriden by the user).
   WiFi.macAddress(macAddress);
   sprintf(moduleId, MODULE_ID_FORMAT, macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
-  sprintf(defaultTopic, MQTT_DEFAULT_TOPIC_FORMAT, moduleId);
+  char defaultTopic[60];
+  char buffer[10];
+  sprintf(defaultTopic, CF_DEFAULT_MQTT_TOPIC_FORMAT, moduleId);
 
-  // Initialise the MQTT default configuration then try to load any saved data.
-  // Create a WiFiManager instance and configure it.
+  // Try to load user configuration
+  userConfigurationLoaded = loadConfig(mqttConfig);
+
+  // Initialise the WiFi portal with either the just loaded data or
+  // with some anaemic defaults.
   WiFiManager wifiManager;
-  WiFiManagerParameter custom_mqtt_servername("server", "mqtt server", "", 40);
-  WiFiManagerParameter custom_mqtt_serverport("port", "mqtt port", DEFAULT_MQTT_PORT, 6);
-  WiFiManagerParameter custom_mqtt_username("user", "mqtt user", "", 20);
-  WiFiManagerParameter custom_mqtt_password("pass", "mqtt pass", "", 20);
-  WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", defaultTopic, 40);
-  WiFiManagerParameter custom_mqtt_sw0_alias("sw0alias", "alias for sw0", DEFAULT_PROPERTY_NAME_FOR_SW0, 20);
-  WiFiManagerParameter custom_mqtt_sw1_alias("sw1alias", "alias for sw1", DEFAULT_PROPERTY_NAME_FOR_SW1, 20);
-  
-  // Try to load the module configuration.
-  if (loadConfig(mqttConfig)) {
-    // When the module WiFi service starts it may not be able to
-    // connect to a wifi network and in this case will create an
-    // access point to allow module configuration. We need to
-    // create and initialise the WiFi manager configuration properties.
-    WiFiManagerParameter custom_mqtt_servername("server", "mqtt server", mqttConfig.servername, 40);
-    WiFiManagerParameter custom_mqtt_serverport("port", "mqtt port", "" + mqttConfig.serverport, 6);
-    WiFiManagerParameter custom_mqtt_username("user", "mqtt user", mqttConfig.username, 20);
-    WiFiManagerParameter custom_mqtt_password("pass", "mqtt pass", mqttConfig.password, 20);
-    WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", mqttConfig.topic, 40);
-    WiFiManagerParameter custom_mqtt_sw0_alias("sw0alias", "alias for sw0", mqttConfig.sw0propertyname, 20);
-    WiFiManagerParameter custom_mqtt_sw1_alias("sw1alias", "alias for sw1", mqttConfig.sw1propertyname, 20);
-  } else {
-    wifiManager.resetSettings();
-  }  
+  if (!userConfigurationLoaded) wifiManager.resetSettings();
+  WiFiManagerParameter custom_mqtt_servername("server", "mqtt server", (userConfigurationLoaded)?mqttConfig.servername:"", 40);
+  sprintf(buffer, "%d", (userConfigurationLoaded)?mqttConfig.serverport:CF_DEFAULT_MQTT_SERVICE_PORT);
+  WiFiManagerParameter custom_mqtt_serverport("port", "mqtt port", buffer, 6);
+  WiFiManagerParameter custom_mqtt_username("user", "mqtt user", (userConfigurationLoaded)?mqttConfig.username:"", 20);
+  WiFiManagerParameter custom_mqtt_password("pass", "mqtt pass", (userConfigurationLoaded)?mqttConfig.password:"", 20);
+  WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", (userConfigurationLoaded)?mqttConfig.topic:defaultTopic, 40);
+  sprintf(buffer, "%d", (userConfigurationLoaded)?mqttConfig.softpublicationinterval:CF_DEFAULT_MQTT_PUBLISH_SOFT_INTERVAL);
+  WiFiManagerParameter custom_mqtt_softinterval("softinterval", "mqtt soft interval", buffer, 6);
+  sprintf(buffer, "%d", (userConfigurationLoaded)?mqttConfig.hardpublicationinterval:CF_DEFAULT_MQTT_PUBLISH_HARD_INTERVAL);
+  WiFiManagerParameter custom_mqtt_hardinterval("hardinterval", "mqtt hard interval", buffer, 6);
+  WiFiManagerParameter custom_mqtt_sw0_alias("sw0alias", "alias for sw0", (userConfigurationLoaded)?mqttConfig.sw0propertyname:CF_DEFAULT_PROPERTY_NAME_FOR_SW0, 20);
+  WiFiManagerParameter custom_mqtt_sw1_alias("sw1alias", "alias for sw1", (userConfigurationLoaded)?mqttConfig.sw1propertyname:CF_DEFAULT_PROPERTY_NAME_FOR_SW1, 20);
   
   // Create a WiFiManager instance and configure it.
-  wifiManager.setConfigPortalTimeout(WIFI_ACCESS_POINT_PORTAL_TIMEOUT);
+  wifiManager.setConfigPortalTimeout(AP_PORTAL_TIMEOUT);
   wifiManager.setSaveConfigCallback(saveConfigCallback);
   wifiManager.setBreakAfterConfig(true);
   wifiManager.addParameter(&custom_mqtt_servername);
@@ -300,30 +320,37 @@ void setup() {
   wifiManager.addParameter(&custom_mqtt_username);
   wifiManager.addParameter(&custom_mqtt_password);
   wifiManager.addParameter(&custom_mqtt_topic);
+  wifiManager.addParameter(&custom_mqtt_softinterval);
+  wifiManager.addParameter(&custom_mqtt_hardinterval);
   wifiManager.addParameter(&custom_mqtt_sw0_alias);
   wifiManager.addParameter(&custom_mqtt_sw1_alias);
   
   // Finally, start the WiFi manager. 
   bool res = wifiManager.autoConnect(moduleId);
 
-  // If the configuration data has changed, then get it and save it...
+  // When we reach this point, the WiFi manager may have connected to
+  // its host network or not as indicated by the value of res.
+  //
+  // In either case, it may have been in configuration mode and had its
+  // configuration settings changed (as indicated by shouldSaveConfig)
+  // and we need in this case to make sure we preserve our user
+  // configuration.
+  
   if (shouldSaveConfig) {
     strcpy(mqttConfig.servername, custom_mqtt_servername.getValue());
     mqttConfig.serverport = atoi(custom_mqtt_serverport.getValue());
     strcpy(mqttConfig.username, custom_mqtt_username.getValue());
     strcpy(mqttConfig.password, custom_mqtt_password.getValue());
     strcpy(mqttConfig.topic, custom_mqtt_topic.getValue());
+    mqttConfig.softpublicationinterval = atoi(custom_mqtt_softinterval.getValue());
+    mqttConfig.hardpublicationinterval = atoi(custom_mqtt_hardinterval.getValue());
     strcpy(mqttConfig.sw0propertyname, custom_mqtt_sw0_alias.getValue());
     strcpy(mqttConfig.sw1propertyname, custom_mqtt_sw1_alias.getValue());
-    if (strlen(mqttConfig.topic) == 0) strcpy(mqttConfig.topic, defaultTopic);
-    if (strlen(mqttConfig.sw0propertyname) == 0) strcpy(mqttConfig.sw0propertyname, DEFAULT_PROPERTY_NAME_FOR_SW0);
-    if (strlen(mqttConfig.sw1propertyname) == 0) strcpy(mqttConfig.sw1propertyname, DEFAULT_PROPERTY_NAME_FOR_SW1);
     saveConfig(mqttConfig);
   }
 
-  // If we get to this point then the WiFi manager has either entered
-  // configuration mode and being timed out or we are connected to the
-  // configured network.  
+  // If we are connected to our host network, then we can continue into
+  // production; if not, then let's reboot and go around again.
   if (!res) {
     #ifdef DEBUG_SERIAL
       Serial.println("WiFi configuration or connection failure: restarting system.");
@@ -335,25 +362,29 @@ void setup() {
       Serial.print(WiFi.SSID());
       Serial.println("'");
     #endif
-    // We have a WiFi connection, so configure the MQTT connection
+
+    // We have a WiFi connection, so configure the MQTT connection. 
+    // We'll leave actually registering with the MQTT server until we
+    // are in the loop().
     mqttClient.setServer(mqttConfig.servername, mqttConfig.serverport);
 
-    // Sensor detection
+    // Time now to detect, set-up and initialise any connected sensors.
+
     Serial.print("Detected sensors: ");
 
     // Dallas one-wire temperature sensors
-    /*DeviceAddress dallasAddress;
-    char dallasAddressString[20];
-    temperatureSensors.begin();
-    if (dallasDeviceCount = temperatureSensors.getDeviceCount()) {
-      for (int i = 0; i < dallasDeviceCount; i++) {
-        if (temperatureSensors.getAddress(dallasAddress, i)) {
-          sprintf(dallasAddressString, DALLAS_ADDRESS_FORMAT, dallasAddress[0], dallasAddress[1], dallasAddress[2], dallasAddress[3], dallasAddress[4], dallasAddress[5], dallasAddress[6], dallasAddress[7]);
-          Serial.print(dallasAddressString);
+    DeviceAddress deviceAddress;
+    char deviceName[20];
+    DS18B20.begin();
+    if ((DS18B20_DEVICE_COUNT = DS18B20.getDeviceCount())) {
+      for (int i = 0; i < DS18B20_DEVICE_COUNT; i++) {
+        if (DS18B20.getAddress(deviceAddress, i)) {
+          sprintf(deviceName, DS18B20_NAME_FORMAT, deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
+          Serial.print(deviceName);
           Serial.print(" ");
         }
       }
-    }*/
+    }
 
     // AM2322 initialisation
     /*if (AM2322.begin()) {
@@ -382,38 +413,42 @@ void setup() {
  * Begin by checking that we have an active MQTT connection.  If not,
  * then try to make one. 
  * 
- * Once every MQTT_PUBLISH_SOFT_INTERVAL miliseconds read the sensors.
+ * Once every CF_DEFAULT_MQTT_PUBLISH_SOFT_INTERVAL miliseconds read the sensors.
  * If the sensor values have changed from those most recently published
- * or MQTT_PUBLISH_HARD_INTERVAL has elapsed then update the configured
+ * or CF_DEFAULT_MQTT_PUBLISH_HARD_INTERVAL has elapsed then update the configured
  * topic on the connected MQTT server.
  */
 void loop() {
   static long mqttPublishSoftDeadline = 0L;
   static long mqttPublishHardDeadline = 0L;
   static char mqttStatusMessage[256];
-  //DeviceAddress dallasAddress;
-  //char dallasAddressString[20];
+  DeviceAddress deviceAddress;
+  char deviceName[20];
   long now = millis();
   int dirty = false;
 
-  // Try and recover a failed server connection
+  // If we aren't connected to the MQTT server then try and make that
+  // connection now. The connection attempt will loop indefinitely if
+  // a connection cannot be made. Doing this in the loop eliminates
+  // issues with transient server connection errors.
   if (!mqttClient.connected()) connect_to_mqtt(mqttConfig.servername, mqttConfig.serverport, mqttConfig.username, mqttConfig.password, moduleId);
   
-  // Perform connection houskeeping
+  // At this point we have an MQTT connection, so we perform some
+  // mandatory connection houskeeping
   mqttClient.loop();
 
-  // Check if our time has come
+  // Check if our time has come to publish
   if (now > mqttPublishSoftDeadline) {
 
-    /*if (dallasDeviceCount) {
-      temperatureSensors.requestTemperatures();
-      for (int i = 0; i < dallasDeviceCount; i++) {
-        if (temperatureSensors.getAddress(dallasAddress, i)) {
-          sprintf(dallasAddressString, DALLAS_ADDRESS_FORMAT, dallasAddress[0], dallasAddress[1], dallasAddress[2], dallasAddress[3], dallasAddress[4], dallasAddress[5], dallasAddress[6], dallasAddress[7]);
-          if ((int) jsonBuffer[dallasAddressString] != (int) round(temperatureSensors.getTempC(dallasAddress))) { jsonBuffer[dallasAddressString] = (int) round(temperatureSensors.getTempC(dallasAddress)); dirty = true; }
+    if (DS18B20_DEVICE_COUNT) {
+      DS18B20.requestTemperatures();
+      for (int i = 0; i < DS18B20_DEVICE_COUNT; i++) {
+        if (DS18B20.getAddress(deviceAddress, i)) {
+          sprintf(deviceName, DS18B20_NAME_FORMAT, deviceAddress[0], deviceAddress[1], deviceAddress[2], deviceAddress[3], deviceAddress[4], deviceAddress[5], deviceAddress[6], deviceAddress[7]);
+          if ((int) jsonBuffer[deviceName] != (int) round(DS18B20.getTempC(deviceAddress))) { jsonBuffer[deviceName] = (int) round(DS18B20.getTempC(deviceAddress)); dirty = true; }
         }
       }
-    }*/
+    }
 
     /*if (AM2322.isConnected()) {
       if (AM2322.read() == AM232X_OK) {
@@ -440,8 +475,8 @@ void loop() {
         Serial.println(mqttConfig.topic);
       #endif
 
-      mqttPublishHardDeadline = (now + MQTT_PUBLISH_HARD_INTERVAL);
+      mqttPublishHardDeadline = (now + mqttConfig.softpublicationinterval);
     }
-    mqttPublishSoftDeadline = (now + MQTT_PUBLISH_SOFT_INTERVAL);
+    mqttPublishSoftDeadline = (now + mqttConfig.hardpublicationinterval);
   }
 }
