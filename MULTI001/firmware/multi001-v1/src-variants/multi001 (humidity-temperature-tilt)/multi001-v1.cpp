@@ -8,32 +8,40 @@
  *   SPST switches (x4)
  * DESCRIPTION
  *   This firmware implements an IoT MQTT client which reports sensor
- *   data form a range of devices that may be connected to a Wemos D1
- *   Mini microcontroller. The following sensors are supported.
+ *   data from SPST switches and a range of devices connected to the
+ *   host microcontroller over I2C or one-wire busses.
  * 
- *   1. AM2320 humidity & temperature
- *      This sensor connects via the I2C bus on pins D1 & D2. The sensor
- *      is automatically detected and no user configuration is required.
+ *   The generated MQTT message is a JSON object with properties
+ *   reflecting data harvested from one or more of the following
+ *   sensors.
+ * 
+ *   1. SPST switches
+ *      Up to two active-low SPST switches can be connected to
+ *      GPIO14(D5) and GPIO12(D6). The following two properties are
+ *      always included in the output message (note that the reported
+ *      property names can be overriden during module configuration).
+ * 
+ *      PROPERTY            VALUE
+ *      sw0 (or alias)      Integer boolean 0 or 1 (OFF or ON) 
+ *      sw1 (or alias)      Integer boolean 0 or 1 (OFF or ON)
+* 
+ *   2. AM2320 humidity & temperature
  *      
- *      Property name       Value
+ *      A single sensor of this type can be connected to the I2C bus
+ *      on GPIO5(D1/SCL) and GPIO4(D2/SDA). The sensor is automatically
+ *      detected and no user configuration is required. Presence of the
+ *      sensor adds the following properties to the output message.
+ *      
+ *      PROPERTY            VALUE
  *      humidity            Integer percent in the range 0..100
  *      temperature         Integer Celsius in the range -40..80
- * 
- *   2. SPST switches
- *      A maximum of four switches (SW0, SW1, SW2 and SW3) are supported
- *      with active-low connection to pins D5, D6, D7 and D8. Switches
- *      must be manually configured by assigning a property name at module
- *      configuration to each active switch.
- * 
- *      Property name       Value
- *      as configured       Integer boolean 0 or 1 (OFF or ON) 
- * 
+ *  
  *   A JSON object containing properties relating to detected and/or
  *   configured sensors are published to a user defined topic on a user
  *   configured MQTT server (see CONFIGURATION below).
  * 
  *   The value 999, meaning undefined, is published to indicate that
- *   reading the associated sensor failed for whatever reason.
+ *   reading a detected or configured sensor failed for whatever reason.
  * 
  *   The defined MQTT topic is updated whenever a sensor value changes
  *   or once every 30 seconds. The maximum update rate is once every
@@ -69,9 +77,11 @@
  * 
  * topic                   The topic on which to publish data.
  * 
- * prop name for SW[0..3]  A JSON property name to be used for each of
- *                         switches SW[0..3]. Not supplying a property
- *                         name disables the associated switch input.
+ * sw0 alias               A JSON property name to be used instead of
+ *                         the default (sw0)
+ *
+ * sw1 alias               A JSON property name to be used instead of
+ *                         the default (sw1)
  * 
  * When the configuration is saved the device will immediately reboot
  * and attempt to enter production with the specified configuration.
@@ -91,16 +101,18 @@
 #define DEBUG_SERIAL                      // Enable debug messages
 #define DEBUG_SERIAL_START_DELAY 2000     // Milliseconds wait before output
 
-#define GPIO_SCL 1                        // I2C SCL
-#define GPIO_SDA 2                        // I2C SDA
-#define GPIO_ONE_WIRE_BUS 4               // For Dallas temperature sensors
-#define GPIO_SW0 5                        // SPST switch
-#define GPIO_SW1 6                        // SPST switch
-#define GPIO_SW2 7                        // SPST switch
-#define GPIO_SW3 8                        // SPST switch
+#define GPIO_SCL 5                        // I2C SCL
+#define GPIO_SDA 4                        // I2C SDA
+#define GPIO_ONE_WIRE_BUS 13              // For Dallas temperature sensors
+#define GPIO_SW0 14                       // SPST switch
+#define GPIO_SW1 12                       // SPST switch
 
 #define MODULE_ID_FORMAT "MULTISENSOR-%02x%02x%02x%02x%02x%02x"
-#define MQTT_DEFAULT_TOPIC_FORMAT "%s/status"
+
+#define DEFAULT_MQTT_PORT "1886"
+#define MQTT_DEFAULT_TOPIC_FORMAT "multisensor/%s"
+#define DEFAULT_PROPERTY_NAME_FOR_SW0 "sw0"
+#define DEFAULT_PROPERTY_NAME_FOR_SW1 "sw1"
 
 #define WIFI_SERVER_PORT 80               
 #define WIFI_ACCESS_POINT_PORTAL_TIMEOUT 180 // In seconds
@@ -129,8 +141,6 @@ struct MQTT_CONFIG {
   char topic[60];          // MQTT topic on which to publish
   char sw0propertyname[20];
   char sw1propertyname[20];
-  char sw2propertyname[20];
-  char sw3propertyname[20];
 };
 
 /**********************************************************************
@@ -143,9 +153,9 @@ PubSubClient mqttClient(wifiClient);
 /**********************************************************************
  * Globals representing sensor entities.
  */
-AM232X AM2322;                    // I2C humidity/temperature
-OneWire oneWire(GPIO_ONE_WIRE_BUS);
-DallasTemperature temperatureSensors(&oneWire);
+//AM232X AM2322;                    // I2C humidity/temperature
+//OneWire oneWire(GPIO_ONE_WIRE_BUS);
+//DallasTemperature temperatureSensors(&oneWire);
 
 /**********************************************************************
  * Used by loop() to automatically reconnect to the specified MQTT
@@ -189,8 +199,6 @@ void dumpConfig(MQTT_CONFIG &config) {
   Serial.print("MQTT topic: "); Serial.println(config.topic);
   Serial.print("MQTT SW0 property name: "); Serial.println(config.sw0propertyname);
   Serial.print("MQTT SW1 property name: "); Serial.println(config.sw1propertyname);
-  Serial.print("MQTT SW2 property name: "); Serial.println(config.sw2propertyname);
-  Serial.print("MQTT SW3 property name: "); Serial.println(config.sw3propertyname);
   #endif
 }
 
@@ -222,7 +230,7 @@ void saveConfig(MQTT_CONFIG &config) {
   EEPROM.commit();
   EEPROM.end();
 }
-
+ 
 /**********************************************************************
  * Method called when the user updates the module configuration through
  * the captive portal and a global variable which is used to flag this
@@ -259,14 +267,12 @@ void setup() {
   // Create a WiFiManager instance and configure it.
   WiFiManager wifiManager;
   WiFiManagerParameter custom_mqtt_servername("server", "mqtt server", "", 40);
-  WiFiManagerParameter custom_mqtt_serverport("port", "mqtt port", "1883", 6);
+  WiFiManagerParameter custom_mqtt_serverport("port", "mqtt port", DEFAULT_MQTT_PORT, 6);
   WiFiManagerParameter custom_mqtt_username("user", "mqtt user", "", 20);
   WiFiManagerParameter custom_mqtt_password("pass", "mqtt pass", "", 20);
   WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", defaultTopic, 40);
-  WiFiManagerParameter custom_mqtt_property_name_0("prop0", "mqtt prop name for SW0", "", 20);
-  WiFiManagerParameter custom_mqtt_property_name_1("prop1", "mqtt prop name for SW1", "", 20);
-  WiFiManagerParameter custom_mqtt_property_name_2("prop2", "mqtt prop name for SW2", "", 20);
-  WiFiManagerParameter custom_mqtt_property_name_3("prop3", "mqtt prop name for SW3", "", 20);
+  WiFiManagerParameter custom_mqtt_sw0_alias("sw0alias", "alias for sw0", DEFAULT_PROPERTY_NAME_FOR_SW0, 20);
+  WiFiManagerParameter custom_mqtt_sw1_alias("sw1alias", "alias for sw1", DEFAULT_PROPERTY_NAME_FOR_SW1, 20);
   
   // Try to load the module configuration.
   if (loadConfig(mqttConfig)) {
@@ -279,10 +285,8 @@ void setup() {
     WiFiManagerParameter custom_mqtt_username("user", "mqtt user", mqttConfig.username, 20);
     WiFiManagerParameter custom_mqtt_password("pass", "mqtt pass", mqttConfig.password, 20);
     WiFiManagerParameter custom_mqtt_topic("topic", "mqtt topic", mqttConfig.topic, 40);
-    WiFiManagerParameter custom_mqtt_property_name_0("prop0", "mqtt prop name for SW0", mqttConfig.sw0propertyname, 20);
-    WiFiManagerParameter custom_mqtt_property_name_1("prop1", "mqtt prop name for SW1", mqttConfig.sw1propertyname, 20);
-    WiFiManagerParameter custom_mqtt_property_name_2("prop2", "mqtt prop name for SW2", mqttConfig.sw2propertyname, 20);
-    WiFiManagerParameter custom_mqtt_property_name_3("prop3", "mqtt prop name for SW3", mqttConfig.sw3propertyname, 20);
+    WiFiManagerParameter custom_mqtt_sw0_alias("sw0alias", "alias for sw0", mqttConfig.sw0propertyname, 20);
+    WiFiManagerParameter custom_mqtt_sw1_alias("sw1alias", "alias for sw1", mqttConfig.sw1propertyname, 20);
   } else {
     wifiManager.resetSettings();
   }  
@@ -296,10 +300,8 @@ void setup() {
   wifiManager.addParameter(&custom_mqtt_username);
   wifiManager.addParameter(&custom_mqtt_password);
   wifiManager.addParameter(&custom_mqtt_topic);
-  wifiManager.addParameter(&custom_mqtt_property_name_0);
-  wifiManager.addParameter(&custom_mqtt_property_name_1);
-  wifiManager.addParameter(&custom_mqtt_property_name_2);
-  wifiManager.addParameter(&custom_mqtt_property_name_3);
+  wifiManager.addParameter(&custom_mqtt_sw0_alias);
+  wifiManager.addParameter(&custom_mqtt_sw1_alias);
   
   // Finally, start the WiFi manager. 
   bool res = wifiManager.autoConnect(moduleId);
@@ -311,10 +313,11 @@ void setup() {
     strcpy(mqttConfig.username, custom_mqtt_username.getValue());
     strcpy(mqttConfig.password, custom_mqtt_password.getValue());
     strcpy(mqttConfig.topic, custom_mqtt_topic.getValue());
-    strcpy(mqttConfig.sw0propertyname, custom_mqtt_property_name_0.getValue());
-    strcpy(mqttConfig.sw1propertyname, custom_mqtt_property_name_1.getValue());
-    strcpy(mqttConfig.sw2propertyname, custom_mqtt_property_name_2.getValue());
-    strcpy(mqttConfig.sw3propertyname, custom_mqtt_property_name_3.getValue());
+    strcpy(mqttConfig.sw0propertyname, custom_mqtt_sw0_alias.getValue());
+    strcpy(mqttConfig.sw1propertyname, custom_mqtt_sw1_alias.getValue());
+    if (strlen(mqttConfig.topic) == 0) strcpy(mqttConfig.topic, defaultTopic);
+    if (strlen(mqttConfig.sw0propertyname) == 0) strcpy(mqttConfig.sw0propertyname, DEFAULT_PROPERTY_NAME_FOR_SW0);
+    if (strlen(mqttConfig.sw1propertyname) == 0) strcpy(mqttConfig.sw1propertyname, DEFAULT_PROPERTY_NAME_FOR_SW1);
     saveConfig(mqttConfig);
   }
 
@@ -339,7 +342,7 @@ void setup() {
     Serial.print("Detected sensors: ");
 
     // Dallas one-wire temperature sensors
-    DeviceAddress dallasAddress;
+    /*DeviceAddress dallasAddress;
     char dallasAddressString[20];
     temperatureSensors.begin();
     if (dallasDeviceCount = temperatureSensors.getDeviceCount()) {
@@ -350,38 +353,24 @@ void setup() {
           Serial.print(" ");
         }
       }
-    }
+    }*/
 
     // AM2322 initialisation
-    if (AM2322.begin()) {
+    /*if (AM2322.begin()) {
       Serial.print("AM2322 ");
       AM2322.wakeUp();
       delay(AM2322_STARTUP_DELAY);
-    }
+    }*/
 
     // SW0
-    if (strlen(mqttConfig.sw0propertyname)) {
-      Serial.print("SW0["); Serial.print(mqttConfig.sw0propertyname); Serial.print("]");
-      pinMode(GPIO_SW0, INPUT_PULLUP);
-    }
+    Serial.print(mqttConfig.sw0propertyname);
+    Serial.print(" ");
+    pinMode(GPIO_SW0, INPUT_PULLUP);
 
     // SW1
-    if (strlen(mqttConfig.sw1propertyname)) {
-      Serial.print("SW1["); Serial.print(mqttConfig.sw1propertyname); Serial.print("]");
-      pinMode(GPIO_SW1, INPUT_PULLUP);
-    }
-
-    // SW2
-    if (strlen(mqttConfig.sw2propertyname)) {
-      Serial.print("SW2["); Serial.print(mqttConfig.sw2propertyname); Serial.print("]");
-      pinMode(GPIO_SW2, INPUT_PULLUP);
-    }
-
-    // SW3
-    if (strlen(mqttConfig.sw3propertyname)) {
-      Serial.print("SW3["); Serial.print(mqttConfig.sw3propertyname); Serial.print("]");
-      pinMode(GPIO_SW3, INPUT_PULLUP);
-    }
+    Serial.print(mqttConfig.sw1propertyname);
+    Serial.print(" ");
+    pinMode(GPIO_SW1, INPUT_PULLUP);
 
     Serial.println();
     // End of sensor detection
@@ -402,8 +391,8 @@ void loop() {
   static long mqttPublishSoftDeadline = 0L;
   static long mqttPublishHardDeadline = 0L;
   static char mqttStatusMessage[256];
-  DeviceAddress dallasAddress;
-  char dallasAddressString[20];
+  //DeviceAddress dallasAddress;
+  //char dallasAddressString[20];
   long now = millis();
   int dirty = false;
 
@@ -416,7 +405,7 @@ void loop() {
   // Check if our time has come
   if (now > mqttPublishSoftDeadline) {
 
-    if (dallasDeviceCount) {
+    /*if (dallasDeviceCount) {
       temperatureSensors.requestTemperatures();
       for (int i = 0; i < dallasDeviceCount; i++) {
         if (temperatureSensors.getAddress(dallasAddress, i)) {
@@ -424,9 +413,9 @@ void loop() {
           if ((int) jsonBuffer[dallasAddressString] != (int) round(temperatureSensors.getTempC(dallasAddress))) { jsonBuffer[dallasAddressString] = (int) round(temperatureSensors.getTempC(dallasAddress)); dirty = true; }
         }
       }
-    }
+    }*/
 
-    if (AM2322.isConnected()) {
+    /*if (AM2322.isConnected()) {
       if (AM2322.read() == AM232X_OK) {
         if ((int) jsonBuffer["humidity"] != (int) round(AM2322.getHumidity())) { jsonBuffer["humidity"] = (int) round(AM2322.getHumidity()); dirty = true; };
         if ((int) jsonBuffer["temperature"] != (int) round(AM2322.getTemperature())) { jsonBuffer["temperature"] = (int) round(AM2322.getTemperature()); dirty = true; };
@@ -434,23 +423,10 @@ void loop() {
         if ((int) jsonBuffer["humidity"] != SENSOR_UNDEFINED_VALUE) { jsonBuffer["humidity"] = SENSOR_UNDEFINED_VALUE; dirty = true; };
         if ((int) jsonBuffer["temperature"] != SENSOR_UNDEFINED_VALUE) { jsonBuffer["temperature"] = SENSOR_UNDEFINED_VALUE; dirty = true; };
       }
-    }
+    }*/
 
-    if (strlen(mqttConfig.sw0propertyname)) {
-      if (jsonBuffer[mqttConfig.sw0propertyname] != digitalRead(GPIO_SW0)) { jsonBuffer[mqttConfig.sw0propertyname] = digitalRead(GPIO_SW0); dirty = true; };
-    }
-
-    if (strlen(mqttConfig.sw1propertyname)) {
-      if (jsonBuffer[mqttConfig.sw1propertyname] != digitalRead(GPIO_SW1)) { jsonBuffer[mqttConfig.sw1propertyname] = digitalRead(GPIO_SW1); dirty = true; };
-    }
-
-    if (strlen(mqttConfig.sw2propertyname)) {
-      if (jsonBuffer[mqttConfig.sw2propertyname] != digitalRead(GPIO_SW2)) { jsonBuffer[mqttConfig.sw2propertyname] = digitalRead(GPIO_SW2); dirty = true; };
-    }
-
-    if (strlen(mqttConfig.sw3propertyname)) {
-      if (jsonBuffer[mqttConfig.sw3propertyname] != digitalRead(GPIO_SW3)) { jsonBuffer[mqttConfig.sw3propertyname] = digitalRead(GPIO_SW3); dirty = true; };
-    }
+    if (jsonBuffer[mqttConfig.sw0propertyname] != digitalRead(GPIO_SW0)) { jsonBuffer[mqttConfig.sw0propertyname] = digitalRead(GPIO_SW0); dirty = true; };
+    if (jsonBuffer[mqttConfig.sw1propertyname] != digitalRead(GPIO_SW1)) { jsonBuffer[mqttConfig.sw1propertyname] = digitalRead(GPIO_SW1); dirty = true; };
 
     // Check if we should actually publish this data
     if (dirty || (now > mqttPublishHardDeadline)) {
