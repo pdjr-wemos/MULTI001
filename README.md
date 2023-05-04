@@ -1,7 +1,11 @@
 # MULTI001
  
-__MULTI001__ is a MQTT wireless sensor module which reports temperature,
-lux and motion.
+__MULTI001__ is an MQTT wireless sensor module which reports temperature,
+humidity, lux and motion.
+
+The module can be built with a number of hardware sensors.
+
+AM2322
 
 __MULTI001__ obtains motion and lux data from a LuxControl SmartDim Sensor 2
 (part number 86 454 523) ceiling fitting which has the following connections:
