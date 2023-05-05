@@ -1,6 +1,24 @@
 # MULTI001
  
-__MULTI001__ is an MQTT wireless sensor module which reports temperature,
+__MULTI001__ is an MQTT wireless sensor module based on the
+[Wemos D1]().
+
+The module can be connected to a number of sensor devices and will
+report readings from the connected devices over MQTT.
+
+| Wemos Pin | Supported device  | Sensed |
+| :-------- | :---------------- | :----- |
+| 5 (SCL)   | } AM2320          | Humidity & temperature |
+| 4 (SDA)   | }                 |        |
+| 0         | DS18B20           | Temperature |
+| A0        | } SmartDim Sensor | Lux
+| 16        | }                 | Movement |
+| 14        | Switch 0          | SPST
+| 12        | Switch 1          | SPST
+| 13        | Switch 2          | SPST
+| 15        | Switch 3          | SPST
+
+module.which supports temperature,
 humidity, lux and motion.
 
 The module can be built with a number of hardware sensors.
