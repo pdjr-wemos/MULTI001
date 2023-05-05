@@ -3,30 +3,21 @@
 __MULTI001__ is an MQTT wireless sensor module based on the
 [Wemos D1]().
 
-The module can be connected to a number of sensor devices and will
+The module can be connected to the following sensor devices and will
 report readings from the connected devices over MQTT.
 
-| Wemos Pin | Supported device  | Sensed |
-| :-------- | :---------------- | :----- |
-| 5 (SCL)   | } AM2320          | Humidity & temperature |
-| 4 (SDA)   | }                 |        |
-| 0         | DS18B20           | Temperature |
-| A0        | } SmartDim Sensor | Lux
-| 16        | }                 | Movement |
-| 14        | Switch 0          | SPST
-| 12        | Switch 1          | SPST
-| 13        | Switch 2          | SPST
-| 15        | Switch 3          | SPST
+**AM2320** is connects to the I2C terminals and supplies temperature
+and humidity readings.
 
-module.which supports temperature,
-humidity, lux and motion.
+**DS18B20** connects to the DS terminals and supplies temperature
+readings.
 
-The module can be built with a number of hardware sensors.
+**SmartDim** is a movement/occupancy sensor which can be connected
+to the SDIM terminals and supplies lux and occupancy readings.
 
-AM2322
-
-__MULTI001__ obtains motion and lux data from a LuxControl SmartDim Sensor 2
-(part number 86 454 523) ceiling fitting which has the following connections:
+Additionally, up to four active-low SPST switches can be connected
+to the CO, SW0, SW1, SW2 and SW3 terminals to provide switch state
+readings.
 
 BROWN  - +12VDC power-in\
 YELLOW - GND\
