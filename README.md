@@ -1,7 +1,7 @@
 # MULTI001
  
 __MULTI001__ is an MQTT wireless sensor module based on the
-[Wemos D1]().
+[Wemos D1]()..
 
 The module can be connected to the following sensor devices and will
 report readings from the connected devices over MQTT.
