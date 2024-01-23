@@ -1,0 +1,178 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L power:GND #PWR01
+U 1 1 65AA0461
+P 1650 3050
+F 0 "#PWR01" H 1650 2800 50  0001 C CNN
+F 1 "GND" H 1650 2900 50  0000 C CNN
+F 2 "" H 1650 3050 50  0001 C CNN
+F 3 "" H 1650 3050 50  0001 C CNN
+	1    1650 3050
+	1    0    0    -1  
+$EndComp
+$Comp
+L wemos-mini:WeMos_mini U1
+U 1 1 65A915FB
+P 3100 2050
+F 0 "U1" H 3100 2687 60  0000 C CNN
+F 1 "WeMos_mini" H 3100 2581 60  0000 C CNN
+F 2 "wemos_d1_mini:WEMOS_D1" H 3650 1350 60  0001 C CNN
+F 3 "" H 3650 1350 60  0000 C CNN
+	1    3100 2050
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector:Conn_01x08_Male J4
+U 1 1 65AB06C1
+P 4050 2250
+F 0 "J4" H 4022 2132 50  0000 R CNN
+F 1 "Conn_01x08_Male" H 4022 2223 50  0000 R CNN
+F 2 "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MPT-0,5-8-2.54_1x08_P2.54mm_Horizontal" H 4050 2250 50  0001 C CNN
+F 3 "~" H 4050 2250 50  0001 C CNN
+	1    4050 2250
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector:Conn_01x08_Male J3
+U 1 1 65AB3A4C
+P 2050 2250
+F 0 "J3" H 2022 2132 50  0000 R CNN
+F 1 "Conn_01x08_Male" H 2022 2223 50  0000 R CNN
+F 2 "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MPT-0,5-8-2.54_1x08_P2.54mm_Horizontal" H 2050 2250 50  0001 C CNN
+F 3 "~" H 2050 2250 50  0001 C CNN
+	1    2050 2250
+	1    0    0    1   
+$EndComp
+Wire Wire Line
+	3550 1850 3850 1850
+Wire Wire Line
+	3550 1950 3850 1950
+Wire Wire Line
+	3550 2050 3850 2050
+Wire Wire Line
+	3550 2150 3850 2150
+Wire Wire Line
+	3550 2250 3850 2250
+Wire Wire Line
+	3550 2350 3850 2350
+Wire Wire Line
+	2550 1850 2250 1850
+Wire Wire Line
+	2550 1950 2250 1950
+Wire Wire Line
+	2550 2050 2250 2050
+Wire Wire Line
+	2550 2150 2250 2150
+Wire Wire Line
+	2550 2250 2250 2250
+Wire Wire Line
+	2250 2350 2550 2350
+Wire Wire Line
+	2550 2450 2250 2450
+Wire Wire Line
+	2250 2550 2400 2550
+$Comp
+L Connector_Generic:Conn_01x02 J1
+U 1 1 65AC4B9F
+P 1250 1350
+F 0 "J1" H 1300 1450 50  0000 R CNN
+F 1 "Conn_01x02" V 1123 1162 50  0001 R CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 1250 1350 50  0001 C CNN
+F 3 "~" H 1250 1350 50  0001 C CNN
+	1    1250 1350
+	-1   0    0    -1  
+$EndComp
+$Comp
+L power:PWR_FLAG #FLG02
+U 1 1 65ACE77F
+P 1550 1450
+F 0 "#FLG02" H 1550 1525 50  0001 C CNN
+F 1 "PWR_FLAG" V 1550 1577 50  0001 L CNN
+F 2 "" H 1550 1450 50  0001 C CNN
+F 3 "~" H 1550 1450 50  0001 C CNN
+	1    1550 1450
+	-1   0    0    1   
+$EndComp
+Wire Wire Line
+	1450 1450 1550 1450
+$Comp
+L power:+3V3 #PWR03
+U 1 1 65B3555F
+P 4300 1350
+F 0 "#PWR03" H 4300 1200 50  0001 C CNN
+F 1 "+3V3" V 4315 1478 50  0000 L CNN
+F 2 "" H 4300 1350 50  0001 C CNN
+F 3 "" H 4300 1350 50  0001 C CNN
+	1    4300 1350
+	0    1    1    0   
+$EndComp
+Connection ~ 1550 1450
+Wire Wire Line
+	1550 1450 1650 1450
+Wire Wire Line
+	3550 2450 3700 2450
+Wire Wire Line
+	2400 2550 2400 1350
+Connection ~ 2400 2550
+Wire Wire Line
+	2400 2550 2550 2550
+Connection ~ 2400 1350
+Wire Wire Line
+	2400 1350 4300 1350
+Wire Wire Line
+	1650 2950 3700 2950
+Wire Wire Line
+	1650 1450 1650 2950
+Wire Wire Line
+	1650 3050 1650 2950
+Connection ~ 1650 2950
+Wire Wire Line
+	3700 2450 3700 2950
+Connection ~ 3700 2450
+Wire Wire Line
+	3700 2450 3850 2450
+Wire Wire Line
+	3550 2550 3850 2550
+$Comp
+L power:PWR_FLAG #FLG0101
+U 1 1 65AED7E8
+P 3550 2550
+F 0 "#FLG0101" H 3550 2625 50  0001 C CNN
+F 1 "PWR_FLAG" V 3550 2677 50  0001 L CNN
+F 2 "" H 3550 2550 50  0001 C CNN
+F 3 "~" H 3550 2550 50  0001 C CNN
+	1    3550 2550
+	-1   0    0    1   
+$EndComp
+Connection ~ 3550 2550
+Wire Wire Line
+	1450 1350 1550 1350
+$Comp
+L power:PWR_FLAG #FLG0102
+U 1 1 65AEED8E
+P 1550 1350
+F 0 "#FLG0102" H 1550 1425 50  0001 C CNN
+F 1 "PWR_FLAG" V 1550 1477 50  0001 L CNN
+F 2 "" H 1550 1350 50  0001 C CNN
+F 3 "~" H 1550 1350 50  0001 C CNN
+	1    1550 1350
+	1    0    0    -1  
+$EndComp
+Connection ~ 1550 1350
+Wire Wire Line
+	1550 1350 2400 1350
+$EndSCHEMATC

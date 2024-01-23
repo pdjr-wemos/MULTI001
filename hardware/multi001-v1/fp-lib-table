@@ -1,0 +1,5 @@
+(fp_lib_table
+  (lib (name wemos_d1_mini)(type KiCad)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/modules/wemos_d1_mini.pretty)(options "")(descr ""))
+  (lib (name am2320)(type KiCad)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/modules/am2320.pretty)(options "")(descr ""))
+  (lib (name transformers)(type KiCad)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/modules/transformers.pretty)(options "")(descr ""))
+)

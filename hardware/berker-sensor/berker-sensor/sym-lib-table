@@ -1,0 +1,5 @@
+(sym_lib_table
+  (lib (name wemos-mini)(type Legacy)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/library/wemos-mini.lib)(options "")(descr ""))
+  (lib (name pdjr)(type Legacy)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/library/pdjr.lib)(options "")(descr ""))
+  (lib (name VTX-214-001-103)(type Legacy)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/library/VTX-214-001-103.lib)(options "")(descr ""))
+)

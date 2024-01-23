@@ -1,0 +1,4 @@
+(fp_lib_table
+  (lib (name connectors)(type KiCad)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/modules/connectors.pretty)(options "")(descr ""))
+  (lib (name transformers)(type KiCad)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/modules/transformers.pretty)(options "")(descr ""))
+)

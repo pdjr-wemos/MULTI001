@@ -1,0 +1,213 @@
+EESchema Schematic File Version 4
+EELAYER 30 0
+EELAYER END
+$Descr A4 11693 8268
+encoding utf-8
+Sheet 1 1
+Title ""
+Date ""
+Rev ""
+Comp ""
+Comment1 ""
+Comment2 ""
+Comment3 ""
+Comment4 ""
+$EndDescr
+$Comp
+L VTX-214-001-103:VTX-214-001-103 U1
+U 1 1 65AB7A00
+P 5550 3700
+F 0 "U1" H 5550 4050 50  0000 C CNN
+F 1 "VTX-214-001-105" H 5550 3350 50  0000 C CNN
+F 2 "transformers:VTX214001103" H 5550 3700 50  0001 L BNN
+F 3 "" H 5550 3700 50  0001 L BNN
+F 4 "Vigortronix" H 5550 3700 50  0001 L BNN "MF"
+F 5 "\\nAc-Dc Conv, Fixed, 1 o/p, 1w, 3.3v\\n" H 5550 3700 50  0001 L BNN "Description"
+F 6 "None" H 5550 3700 50  0001 L BNN "Package"
+F 7 "None" H 5550 3700 50  0001 L BNN "Price"
+F 8 "https://www.snapeda.com/parts/VTX-214-001-103/Vigortronix/view-part/?ref=snap" H 5550 3700 50  0001 L BNN "SnapEDA_Link"
+F 9 "VTX-214-001-103" H 5550 3700 50  0001 L BNN "MP"
+F 10 "In Stock" H 5550 3700 50  0001 L BNN "Availability"
+F 11 "https://www.snapeda.com/parts/VTX-214-001-103/Vigortronix/view-part/?ref=eda" H 5550 3700 50  0001 L BNN "Check_prices"
+	1    5550 3700
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C C1
+U 1 1 65AB9C6A
+P 4750 3700
+F 0 "C1" H 4865 3746 50  0000 L CNN
+F 1 "0.1uF/275V" H 4550 3600 50  0000 L CNN
+F 2 "Capacitor_THT:PANASONIC_100nF_275VAC" H 4788 3550 50  0001 C CNN
+F 3 "~" H 4750 3700 50  0001 C CNN
+	1    4750 3700
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:CP C2
+U 1 1 65ABA87F
+P 6350 3700
+F 0 "C2" H 6468 3746 50  0000 L CNN
+F 1 "100uF/25V" H 6150 3600 50  0000 L CNN
+F 2 "Capacitor_THT:CP_Radial_D5.0mm_P2.00mm" H 6388 3550 50  0001 C CNN
+F 3 "~" H 6350 3700 50  0001 C CNN
+	1    6350 3700
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:Fuse F1
+U 1 1 65ABAFE7
+P 4400 3500
+F 0 "F1" V 4300 3500 50  0000 C CNN
+F 1 "10mA SB" V 4500 3500 50  0000 C CNN
+F 2 "Fuse:BEL_MRT_SERIES" V 4330 3500 50  0001 C CNN
+F 3 "~" H 4400 3500 50  0001 C CNN
+	1    4400 3500
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	4850 3500 4750 3500
+Wire Wire Line
+	4750 3500 4750 3550
+Wire Wire Line
+	4850 3900 4750 3900
+Wire Wire Line
+	4750 3900 4750 3850
+Wire Wire Line
+	4750 3500 4550 3500
+Connection ~ 4750 3500
+Wire Wire Line
+	4250 3500 4050 3500
+Wire Wire Line
+	3950 3900 4050 3900
+Connection ~ 4750 3900
+$Comp
+L power:LINE #PWR01
+U 1 1 65ABF48D
+P 4050 3500
+F 0 "#PWR01" H 4050 3350 50  0001 C CNN
+F 1 "LINE" H 4065 3673 50  0000 C CNN
+F 2 "" H 4050 3500 50  0001 C CNN
+F 3 "" H 4050 3500 50  0001 C CNN
+	1    4050 3500
+	1    0    0    -1  
+$EndComp
+Connection ~ 4050 3500
+Wire Wire Line
+	4050 3500 3950 3500
+$Comp
+L power:NEUT #PWR02
+U 1 1 65AC058D
+P 4050 3900
+F 0 "#PWR02" H 4050 3750 50  0001 C CNN
+F 1 "NEUT" H 4065 4073 50  0000 C CNN
+F 2 "" H 4050 3900 50  0001 C CNN
+F 3 "" H 4050 3900 50  0001 C CNN
+	1    4050 3900
+	-1   0    0    1   
+$EndComp
+Connection ~ 4050 3900
+Wire Wire Line
+	6250 3500 6350 3500
+Wire Wire Line
+	6250 3900 6350 3900
+Wire Wire Line
+	6350 3500 6350 3550
+Wire Wire Line
+	6350 3900 6350 3850
+Connection ~ 6350 3500
+Wire Wire Line
+	6350 3900 6650 3900
+Wire Wire Line
+	6650 3900 6650 3600
+Wire Wire Line
+	6650 3600 6850 3600
+Connection ~ 6350 3900
+$Comp
+L power:GND #PWR04
+U 1 1 65AC6998
+P 6850 3600
+F 0 "#PWR04" H 6850 3350 50  0001 C CNN
+F 1 "GND" H 6855 3427 50  0000 C CNN
+F 2 "" H 6850 3600 50  0001 C CNN
+F 3 "" H 6850 3600 50  0001 C CNN
+	1    6850 3600
+	1    0    0    -1  
+$EndComp
+Connection ~ 6850 3600
+Wire Wire Line
+	6850 3600 6950 3600
+Wire Wire Line
+	4050 3900 4750 3900
+$Comp
+L Connector_Generic:Conn_01x01 J1
+U 1 1 65ABE5F3
+P 3750 3500
+F 0 "J1" H 3750 3400 50  0000 C CNN
+F 1 "Conn_01x01" H 3668 3366 50  0001 C CNN
+F 2 "transformers:KYOCERA_POKEHOME_1P" H 3750 3500 50  0001 C CNN
+F 3 "~" H 3750 3500 50  0001 C CNN
+	1    3750 3500
+	-1   0    0    1   
+$EndComp
+$Comp
+L Connector_Generic:Conn_01x01 J2
+U 1 1 65ABEFA7
+P 3750 3900
+F 0 "J2" H 3750 3800 50  0000 C CNN
+F 1 "Conn_01x01" H 3668 3766 50  0001 C CNN
+F 2 "transformers:KYOCERA_POKEHOME_1P" H 3750 3900 50  0001 C CNN
+F 3 "~" H 3750 3900 50  0001 C CNN
+	1    3750 3900
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:PWR_FLAG #FLG01
+U 1 1 65ACF911
+P 4050 3500
+F 0 "#FLG01" H 4050 3575 50  0001 C CNN
+F 1 "PWR_FLAG" H 4050 3673 50  0001 C CNN
+F 2 "" H 4050 3500 50  0001 C CNN
+F 3 "~" H 4050 3500 50  0001 C CNN
+	1    4050 3500
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:PWR_FLAG #FLG02
+U 1 1 65AD0C61
+P 4050 3900
+F 0 "#FLG02" H 4050 3975 50  0001 C CNN
+F 1 "PWR_FLAG" H 4050 4073 50  0001 C CNN
+F 2 "" H 4050 3900 50  0001 C CNN
+F 3 "~" H 4050 3900 50  0001 C CNN
+	1    4050 3900
+	1    0    0    -1  
+$EndComp
+$Comp
+L Connector_Generic:Conn_01x02 J3
+U 1 1 65AD21E6
+P 7150 3500
+F 0 "J3" H 7100 3600 50  0000 L CNN
+F 1 "Conn_01x02" H 7230 3401 50  0001 L CNN
+F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 7150 3500 50  0001 C CNN
+F 3 "~" H 7150 3500 50  0001 C CNN
+	1    7150 3500
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6350 3500 6850 3500
+$Comp
+L power:+3V3 #PWR?
+U 1 1 65B18B21
+P 6850 3500
+F 0 "#PWR?" H 6850 3350 50  0001 C CNN
+F 1 "+3V3" H 6865 3673 50  0000 C CNN
+F 2 "" H 6850 3500 50  0001 C CNN
+F 3 "" H 6850 3500 50  0001 C CNN
+	1    6850 3500
+	1    0    0    -1  
+$EndComp
+Connection ~ 6850 3500
+Wire Wire Line
+	6850 3500 6950 3500
+$EndSCHEMATC
