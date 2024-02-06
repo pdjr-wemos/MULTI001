@@ -4,11 +4,11 @@
  * 
  * OVERVIEW
  * 
- * This firmware implements an IoT MQTT client which monitors room
- * temperature, lux level and occupancy (via PIR) and publishes this
+ * This firmware implements an IoT MQTT client which monitors
+ * temperature, humidity and occupancy and publishes this
  * data as JSON formatted MQTT message of the form:
  * 
- *   '{ "temperature": t, "lux": l, "motion": m }'
+ *   '{ "temperature": t, "humidity": l, "motion": m }'
  * 
  * CONFIGURATION
  * 

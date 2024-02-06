@@ -170,7 +170,7 @@ PubSubClient mqttClient(wifiClient);
 /**********************************************************************
  * Globals representing sensor entities.
  */
-//AM232X AM2322;                    // I2C humidity/temperature
+AM232X AM2322;                    // I2C humidity/temperature
 OneWire oneWire(GPIO_ONE_WIRE_BUS);
 DallasTemperature DS18B20(&oneWire);
 
@@ -373,6 +373,7 @@ void setup() {
     Serial.print("Detected sensors: ");
 
     // Dallas one-wire temperature sensors
+    /*
     DeviceAddress deviceAddress;
     char deviceName[20];
     DS18B20.begin();
@@ -385,13 +386,14 @@ void setup() {
         }
       }
     }
+    */
 
     // AM2322 initialisation
-    /*if (AM2322.begin()) {
+    if (AM2322.begin()) {
       Serial.print("AM2322 ");
       AM2322.wakeUp();
       delay(AM2322_STARTUP_DELAY);
-    }*/
+    }
 
     // SW0
     Serial.print(mqttConfig.sw0propertyname);
@@ -440,7 +442,7 @@ void loop() {
   // Check if our time has come to publish
   if (now > mqttPublishSoftDeadline) {
 
-    if (DS18B20_DEVICE_COUNT) {
+    /*if (DS18B20_DEVICE_COUNT) {
       DS18B20.requestTemperatures();
       for (int i = 0; i < DS18B20_DEVICE_COUNT; i++) {
         if (DS18B20.getAddress(deviceAddress, i)) {
@@ -448,9 +450,9 @@ void loop() {
           if ((int) jsonBuffer[deviceName] != (int) round(DS18B20.getTempC(deviceAddress))) { jsonBuffer[deviceName] = (int) round(DS18B20.getTempC(deviceAddress)); dirty = true; }
         }
       }
-    }
+    }*/
 
-    /*if (AM2322.isConnected()) {
+    if (AM2322.isConnected()) {
       if (AM2322.read() == AM232X_OK) {
         if ((int) jsonBuffer["humidity"] != (int) round(AM2322.getHumidity())) { jsonBuffer["humidity"] = (int) round(AM2322.getHumidity()); dirty = true; };
         if ((int) jsonBuffer["temperature"] != (int) round(AM2322.getTemperature())) { jsonBuffer["temperature"] = (int) round(AM2322.getTemperature()); dirty = true; };
@@ -458,7 +460,7 @@ void loop() {
         if ((int) jsonBuffer["humidity"] != SENSOR_UNDEFINED_VALUE) { jsonBuffer["humidity"] = SENSOR_UNDEFINED_VALUE; dirty = true; };
         if ((int) jsonBuffer["temperature"] != SENSOR_UNDEFINED_VALUE) { jsonBuffer["temperature"] = SENSOR_UNDEFINED_VALUE; dirty = true; };
       }
-    }*/
+    }
 
     if (jsonBuffer[mqttConfig.sw0propertyname] != digitalRead(GPIO_SW0)) { jsonBuffer[mqttConfig.sw0propertyname] = digitalRead(GPIO_SW0); dirty = true; };
     if (jsonBuffer[mqttConfig.sw1propertyname] != digitalRead(GPIO_SW1)) { jsonBuffer[mqttConfig.sw1propertyname] = digitalRead(GPIO_SW1); dirty = true; };
