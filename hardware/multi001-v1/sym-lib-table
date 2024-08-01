@@ -1,5 +1,7 @@
 (sym_lib_table
-  (lib (name PDJR)(type Legacy)(uri ${USER_SYMBOL_DIR}/pdjr.lib)(options "")(descr ""))
-  (lib (name multi001-v1.nopsu-rescue)(type Legacy)(uri ${KIPRJMOD}/multi001-v1.nopsu-rescue.lib)(options "")(descr "")(disabled))
-  (lib (name VTX-214-001-103)(type Legacy)(uri /Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/library/VTX-214-001-103.lib)(options "")(descr ""))
+  (version 7)
+  (lib (name "PDJR")(type "Legacy")(uri "${USER_SYMBOL_DIR}/pdjr.lib")(options "")(descr ""))
+  (lib (name "multi001-v1.nopsu-rescue")(type "Legacy")(uri "${KIPRJMOD}/multi001-v1.nopsu-rescue.lib")(options "")(descr "")(disabled))
+  (lib (name "VTX-214-001-103")(type "Legacy")(uri "/Users/preeve/Documents/GitHub/pdjr-kicad-libraries/pdjr/library/VTX-214-001-103.lib")(options "")(descr ""))
+  (lib (name "multi001-v1-rescue")(type "KiCad")(uri "${KIPRJMOD}/multi001-v1-rescue.kicad_sym")(options "")(descr ""))
 )
